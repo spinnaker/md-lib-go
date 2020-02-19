@@ -1,11 +1,13 @@
 package mdlib
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/palantir/stacktrace"
@@ -98,33 +100,23 @@ type DeliveryResourceContainer struct {
 	TagVersionStrategy string `json:"tagVersionStrategy" yaml:"tagVersionStrategy"`
 }
 
-// map current resources in delivery config
-// create update/export prompt message
-// prompt for resources to export
-// create list of environment names, append defaults if not present
-// for each resource to export:
-// - inject magic image resource
-// - export resource if not image
-// if resource not in delivery config
-// - prompt for environment
-// - else update delivery config
-// set delivery config defaults if not present
-
 type DeliveryConfigProcessor struct {
+	appName           string
+	serviceAccount    string
 	fileName          string
 	dirName           string
-	appName           string
 	rawDeliveryConfig map[string]interface{}
 	deliveryConfig    DeliveryConfig
+	yamlMarshal       func(interface{}) ([]byte, error)
 }
 
 type ProcessorOption func(p *DeliveryConfigProcessor)
 
-func NewDeliveryConfigProcessor(appName string, opts ...ProcessorOption) *DeliveryConfigProcessor {
+func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcessor {
 	p := &DeliveryConfigProcessor{
-		fileName: DefaultDeliveryConfigFileName,
-		dirName:  DefaultDeliveryConfigDirName,
-		appName:  appName,
+		fileName:    DefaultDeliveryConfigFileName,
+		dirName:     DefaultDeliveryConfigDirName,
+		yamlMarshal: defaultYAMLMarshal,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -142,6 +134,32 @@ func WithFile(f string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.fileName = f
 	}
+}
+
+func WithAppName(a string) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.appName = a
+	}
+}
+
+func WithServiceAccount(a string) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.serviceAccount = a
+	}
+}
+
+func WithYAMLMarshal(marshaller func(interface{}) ([]byte, error)) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.yamlMarshal = marshaller
+	}
+}
+
+func defaultYAMLMarshal(opts interface{}) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := yaml.NewEncoder(buf)
+	enc.SetIndent(2)
+	err := enc.Encode(opts)
+	return buf.Bytes(), err
 }
 
 func (p *DeliveryConfigProcessor) Load() error {
@@ -172,14 +190,17 @@ func (p *DeliveryConfigProcessor) Load() error {
 }
 
 func (p *DeliveryConfigProcessor) Save() error {
-	if _, ok := p.rawDeliveryConfig["name"]; !ok {
+	if _, ok := p.rawDeliveryConfig["name"]; !ok && p.appName != "" {
 		p.rawDeliveryConfig["name"] = fmt.Sprintf("%s-manifest", p.appName)
 	}
-	if _, ok := p.rawDeliveryConfig["application"]; !ok {
+	if _, ok := p.rawDeliveryConfig["application"]; !ok && p.appName != "" {
 		p.rawDeliveryConfig["application"] = p.appName
 	}
+	if _, ok := p.rawDeliveryConfig["serviceAccount"]; !ok && p.serviceAccount != "" {
+		p.rawDeliveryConfig["serviceAccount"] = p.serviceAccount
+	}
 
-	output, err := yaml.Marshal(&p.rawDeliveryConfig)
+	output, err := p.yamlMarshal(&p.rawDeliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(err, "")
 	}
@@ -293,6 +314,16 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	return -1
 }
 
+func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) bool {
+	for eix := range p.deliveryConfig.Environments {
+		rix := p.findResourceIndex(search, eix)
+		if rix >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) {
 	for _, current := range p.deliveryConfig.Artifacts {
 		if current.Name == artifact.Name && current.Type == artifact.Type {
@@ -300,6 +331,89 @@ func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) {
 			return
 		}
 	}
-	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, &artifact)
+	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, *artifact)
 	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
+}
+
+func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
+	if p.rawDeliveryConfig == nil {
+		err := p.Load()
+		if err != nil {
+			return stacktrace.Propagate(err, "Failed to load delivery config")
+		}
+	}
+
+	encoded, err := json.Marshal(&p.rawDeliveryConfig)
+	if err != nil {
+		return stacktrace.Propagate(err, "Failed to serialized delivery config")
+	}
+
+	_, err = commonRequest(cli, "POST", "/managed/delivery-configs", bytes.NewReader(encoded))
+
+	if err != nil {
+		return stacktrace.Propagate(err, "Failed to post delivery config to spinnaker")
+	}
+
+	return nil
+}
+
+// ResourceDiff contains the exact records that differ
+type ResourceDiff struct {
+	State   string `json:"state" yaml:"state"`
+	Desired string `json:"desired" yaml:"desired"`
+	Current string `json:"current" yaml:"current"`
+}
+
+// ManagedResourceDiff contains the details about a specific resource and if it has diffs
+type ManagedResourceDiff struct {
+	Status     string                  `json:"status" yaml:"status"`
+	ResourceID string                  `json:"resourceId" yaml:"resourceId"`
+	Resource   DeliveryResource        `json:"resource" yaml:"resource"`
+	Diffs      map[string]ResourceDiff `json:"diff" yaml:"diff"`
+}
+
+func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, error) {
+	if p.rawDeliveryConfig == nil {
+		err := p.Load()
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "Failed to load delivery config")
+		}
+	}
+
+	encoded, err := json.Marshal(&p.rawDeliveryConfig)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "Failed to serialized delivery config")
+	}
+
+	content, err := commonRequest(cli, "POST", "/managed/delivery-configs/diff", bytes.NewReader(encoded))
+
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "Failed to diff delivery config with spinnaker")
+	}
+
+	data := []struct {
+		ResourceDiffs []*ManagedResourceDiff `json:"resourceDiffs" yaml:"resourceDiffs"`
+	}{}
+
+	err = json.Unmarshal(content, &data)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "failed to parse response from diff api")
+	}
+
+	diffs := []*ManagedResourceDiff{}
+	for _, accountDiffs := range data {
+		diffs = append(diffs, accountDiffs.ResourceDiffs...)
+	}
+
+	sort.Slice(diffs, func(i, j int) bool {
+		// split resource ID
+		idPartsI := strings.Split(diffs[i].ResourceID, ":")
+		idPartsJ := strings.Split(diffs[j].ResourceID, ":")
+		if idPartsI[0] == idPartsJ[0] && len(idPartsI) > 2 && len(idPartsJ) > 2 && idPartsI[2] != idPartsJ[2] {
+			return idPartsI[2] < idPartsJ[2]
+		}
+		return diffs[i].ResourceID < diffs[j].ResourceID
+	})
+
+	return diffs, nil
 }

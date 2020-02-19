@@ -28,7 +28,11 @@ type ExportableResource struct {
 	Name          string
 }
 
-type ResourceSorter []ExportableResource
+func (r ExportableResource) String() string {
+	return fmt.Sprintf("%s %s [%s/%s]", r.ResourceType, r.Name, r.CloudProvider, r.Account)
+}
+
+type ResourceSorter []*ExportableResource
 
 func (s ResourceSorter) Len() int {
 	return len(s)
@@ -106,7 +110,7 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 	return data, nil
 }
 
-func ReferencedArtifacts(appData *ApplicationResources) []DeliveryArtifact {
+func ReferencedArtifacts(appData *ApplicationResources) []*DeliveryArtifact {
 	uniqArtifacts := map[DeliveryArtifact]struct{}{}
 
 	for _, asg := range appData.ServerGroups {
@@ -126,15 +130,16 @@ func ReferencedArtifacts(appData *ApplicationResources) []DeliveryArtifact {
 		}
 	}
 
-	artifacts := []DeliveryArtifact{}
+	artifacts := []*DeliveryArtifact{}
 	for artifact := range uniqArtifacts {
-		artifacts = append(artifacts, artifact)
+		artifact := artifact
+		artifacts = append(artifacts, &artifact)
 	}
 
 	return artifacts
 }
 
-func ExportableApplicationResources(appData *ApplicationResources) []ExportableResource {
+func ExportableApplicationResources(appData *ApplicationResources) []*ExportableResource {
 	uniqResources := map[ExportableResource]struct{}{}
 
 	for _, asg := range appData.ServerGroups {
@@ -163,15 +168,16 @@ func ExportableApplicationResources(appData *ApplicationResources) []ExportableR
 		}
 	}
 
-	exportable := []ExportableResource{}
+	exportable := []*ExportableResource{}
 	for resource := range uniqResources {
-		exportable = append(exportable, resource)
+		resource := resource
+		exportable = append(exportable, &resource)
 	}
 	return exportable
 }
 
 func ExportResource(cli *Client, resource *ExportableResource, serviceAccount string) ([]byte, error) {
-	return commonGet(cli,
+	return commonRequest(cli, "GET",
 		fmt.Sprintf("/managed/resources/export/%s/%s/%s/%s?serviceAccount=%s",
 			resource.CloudProvider,
 			resource.Account,
@@ -179,5 +185,6 @@ func ExportResource(cli *Client, resource *ExportableResource, serviceAccount st
 			resource.Name,
 			serviceAccount,
 		),
+		nil,
 	)
 }
