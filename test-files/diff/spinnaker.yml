@@ -1,0 +1,84 @@
+application: myapp
+artifacts:
+- name: myapp
+  type: deb
+- name: myteam/myapp-test
+  type: docker
+environments:
+- constraints:
+  - type: manual-judgement
+  name: testing
+  notifications: []
+  resources:
+  - apiVersion: ec2.spinnaker.netflix.com/v1
+    kind: cluster
+    metadata: {}
+    spec:
+      dependencies:
+        securityGroupNames:
+        - myapp
+      deployWith:
+        delayBeforeDisable: PT0S
+        delayBeforeScaleDown: PT0S
+        maxServerGroups: 2
+        resizePreviousToZero: false
+        rollbackOnFailure: true
+        strategy: red-black
+      health:
+        terminationPolicies:
+        - Default
+      imageProvider:
+        reference: myapp
+      locations:
+        account: test
+        regions:
+        - name: us-east-1
+      moniker:
+        app: myapp
+  - apiVersion: titus.spinnaker.netflix.com/v1
+    kind: cluster
+    metadata: {}
+    spec:
+      container:
+        image: maapp-test
+        organization: myteam
+        tagVersionStrategy: semver-job-commit-by-semver
+      dependencies:
+        securityGroupNames:
+        - myapp
+      deployWith:
+        delayBeforeDisable: PT0S
+        delayBeforeScaleDown: PT0S
+        maxServerGroups: 2
+        resizePreviousToZero: false
+        rollbackOnFailure: true
+        strategy: red-black
+      locations:
+        account: titustest
+        regions:
+        - name: us-east-1
+        vpc: vpc0
+      moniker:
+        app: myapp
+      overrides: {}
+      resources:
+        cpu: 2
+        disk: 20000,
+        gpu: 0,
+        memory: 1024,
+        networkMbps: 128,
+  - apiVersion: ec2.spinnaker.netflix.com/v1
+    kind: security-group
+    metadata: {}
+    spec:
+      description: Security Group for myapp
+      inboundRules: []
+      locations:
+        account: test
+        regions:
+        - name: us-east-1
+        vpc: vpc0
+      moniker:
+        app: myapp
+name: myapp-manifest
+serviceAccount: myteam@example.com

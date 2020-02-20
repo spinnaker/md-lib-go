@@ -1,0 +1,26 @@
+---
+apiVersion: "ec2.spinnaker.netflix.com/v1"
+kind: "cluster"
+metadata: {}
+spec:
+  moniker:
+    app: "myapp"
+  imageProvider:
+    reference: "myapp"
+  deployWith:
+    strategy: "red-black"
+    rollbackOnFailure: true
+    resizePreviousToZero: false
+    maxServerGroups: 2
+    delayBeforeDisable: "PT0S"
+    delayBeforeScaleDown: "PT0S"
+  locations:
+    account: "test"
+    regions:
+    - name: "us-east-1"
+  dependencies:
+    securityGroupNames:
+    - "myapp"
+  health:
+    terminationPolicies:
+    - "Default"

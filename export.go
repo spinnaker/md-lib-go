@@ -34,12 +34,8 @@ func (r ExportableResource) String() string {
 
 type ResourceSorter []*ExportableResource
 
-func (s ResourceSorter) Len() int {
-	return len(s)
-}
-func (s ResourceSorter) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
+func (s ResourceSorter) Len() int      { return len(s) }
+func (s ResourceSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s ResourceSorter) Less(i, j int) bool {
 	if s[i].ResourceType != s[j].ResourceType {
 		return s[i].ResourceType < s[j].ResourceType
@@ -51,6 +47,17 @@ func (s ResourceSorter) Less(i, j int) bool {
 		return s[i].CloudProvider < s[j].CloudProvider
 	}
 	return s[i].Account < s[j].Account
+}
+
+type ArtifactSorter []*DeliveryArtifact
+
+func (s ArtifactSorter) Len() int      { return len(s) }
+func (s ArtifactSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s ArtifactSorter) Less(i, j int) bool {
+	if s[i].Name != s[j].Name {
+		return s[i].Name < s[j].Name
+	}
+	return s[i].Type < s[j].Type
 }
 
 // Account is just a string type, used to make code more readable

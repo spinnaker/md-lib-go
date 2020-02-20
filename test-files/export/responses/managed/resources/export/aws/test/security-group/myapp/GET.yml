@@ -1,0 +1,14 @@
+---
+apiVersion: "ec2.spinnaker.netflix.com/v1"
+kind: "security-group"
+metadata: {}
+spec:
+  moniker:
+    app: "myapp"
+  locations:
+    account: "test"
+    vpc: "vpc0"
+    regions:
+    - name: "us-east-1"
+  description: "Security Group for myapp"
+  inboundRules: []

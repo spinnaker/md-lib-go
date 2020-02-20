@@ -1,0 +1,150 @@
+[
+  {
+    "name": "myapp-v031",
+    "account": "titustest",
+    "region": "us-east-1",
+    "cluster": "myapp",
+    "type": "titus",
+    "cloudProvider": "titus",
+    "application": "myapp",
+    "isDisabled": false,
+    "moniker": {
+      "app": "myapp",
+      "cluster": "myapp",
+      "sequence": 31
+    },
+    "buildInfo": {
+      "images": [
+        "myteam/myapp-test:sha256:01234356789012343567890123435678901234356789"
+      ],
+      "docker": {
+        "image": "myteam/myapp-test",
+        "tag": "",
+        "digest": "sha256:01234356789012343567890123435678901234356789"
+      }
+    },
+    "createdTime": 1582133928578,
+    "capacity": {
+      "min": 1,
+      "max": 1,
+      "desired": 1
+    },
+    "instances": [
+      {
+        "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "name": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "health": [
+          {
+            "type": "Titus",
+            "state": "Unknown"
+          },
+          {
+            "type": "Discovery",
+            "state": "Up",
+            "status": "UP"
+          }
+        ],
+        "healthState": "Up",
+        "launchTime": 1582133928586,
+        "availabilityZone": "us-east-1d"
+      }
+    ],
+    "loadBalancers": [],
+    "targetGroups": [],
+    "securityGroups": [
+      "sg-b0123456789"
+    ],
+    "instanceCounts": {
+      "total": 1,
+      "up": 1,
+      "down": 0,
+      "unknown": 0,
+      "outOfService": 0,
+      "starting": 0
+    },
+    "tags": {
+      "spinnakerAccount": "titustest",
+      "titus.createdBy": "myteam@example.com",
+      "titus.legacy.name": "myapp",
+      "titus.stack": "main01",
+      "name": "myapp-v031",
+      "source": "spinnaker"
+    },
+    "labels": {
+      "spinnakerAccount": "titustest",
+      "titus.createdBy": "myteam@example.com",
+      "titus.legacy.name": "myapp",
+      "titus.stack": "main01",
+      "name": "myapp-v031",
+      "source": "spinnaker"
+    },
+    "serverGroupManagers": []
+  },
+  {
+    "name": "myapp-v028",
+    "account": "test",
+    "region": "us-east-1",
+    "cluster": "myapp",
+    "vpcId": "vpc-b0123456789",
+    "type": "aws",
+    "cloudProvider": "aws",
+    "instanceType": "t2.nano",
+    "application": "myapp",
+    "isDisabled": false,
+    "moniker": {
+      "app": "myapp",
+      "cluster": "myapp",
+      "sequence": 28
+    },
+    "buildInfo": {
+      "package_name": "myapp",
+      "version": "1.0.0",
+      "commit": "abcdef01234",
+      "jenkins": {
+        "name": "build-myapp",
+        "number": "60",
+        "host": "https://builder.example.com/"
+      }
+    },
+    "createdTime": 1582134179697,
+    "capacity": {
+      "min": 1,
+      "max": 1,
+      "desired": 1
+    },
+    "instances": [
+      {
+        "id": "i-01234567890123456789",
+        "name": "i-01234567890123456789",
+        "health": [
+          {
+            "type": "Amazon",
+            "state": "Unknown"
+          },
+          {
+            "type": "Discovery",
+            "state": "Up",
+            "status": "UP"
+          }
+        ],
+        "healthState": "Up",
+        "launchTime": 1582134182000,
+        "availabilityZone": "us-east-1e"
+      }
+    ],
+    "loadBalancers": [],
+    "targetGroups": [],
+    "securityGroups": [
+      "sg-b0123456789"
+    ],
+    "instanceCounts": {
+      "total": 1,
+      "up": 1,
+      "down": 0,
+      "unknown": 0,
+      "outOfService": 0,
+      "starting": 0
+    },
+    "serverGroupManagers": []
+  }
+]

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -71,7 +72,7 @@ func (r DeliveryResource) CloudProvider() string {
 	if strings.Contains(r.ApiVersion, "titus") {
 		return "titus"
 	}
-	return "ec2"
+	return "aws"
 }
 
 // DeliveryResourceSpec is the spec for the delivery resource
@@ -108,15 +109,17 @@ type DeliveryConfigProcessor struct {
 	rawDeliveryConfig map[string]interface{}
 	deliveryConfig    DeliveryConfig
 	yamlMarshal       func(interface{}) ([]byte, error)
+	yamlUnmarshal     func([]byte, interface{}) error
 }
 
 type ProcessorOption func(p *DeliveryConfigProcessor)
 
 func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcessor {
 	p := &DeliveryConfigProcessor{
-		fileName:    DefaultDeliveryConfigFileName,
-		dirName:     DefaultDeliveryConfigDirName,
-		yamlMarshal: defaultYAMLMarshal,
+		fileName:      DefaultDeliveryConfigFileName,
+		dirName:       DefaultDeliveryConfigDirName,
+		yamlMarshal:   defaultYAMLMarshal,
+		yamlUnmarshal: yaml.Unmarshal,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -154,6 +157,12 @@ func WithYAMLMarshal(marshaller func(interface{}) ([]byte, error)) ProcessorOpti
 	}
 }
 
+func WithYAMLUnmarshal(unmarshaller func([]byte, interface{}) error) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.yamlUnmarshal = unmarshaller
+	}
+}
+
 func defaultYAMLMarshal(opts interface{}) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := yaml.NewEncoder(buf)
@@ -163,6 +172,9 @@ func defaultYAMLMarshal(opts interface{}) ([]byte, error) {
 }
 
 func (p *DeliveryConfigProcessor) Load() error {
+	p.rawDeliveryConfig = map[string]interface{}{}
+	p.deliveryConfig = DeliveryConfig{}
+
 	deliveryFile := filepath.Join(p.dirName, p.fileName)
 	if _, err := os.Stat(deliveryFile); err != nil && os.IsNotExist(err) {
 		// file does not exist, skip
@@ -174,8 +186,6 @@ func (p *DeliveryConfigProcessor) Load() error {
 	if err != nil {
 		return stacktrace.Propagate(err, "failed to read %s", deliveryFile)
 	}
-
-	p.rawDeliveryConfig = map[string]interface{}{}
 
 	err = yaml.Unmarshal(content, &p.rawDeliveryConfig)
 	if err != nil {
@@ -190,6 +200,7 @@ func (p *DeliveryConfigProcessor) Load() error {
 }
 
 func (p *DeliveryConfigProcessor) Save() error {
+	log.Printf("Saving")
 	if _, ok := p.rawDeliveryConfig["name"]; !ok && p.appName != "" {
 		p.rawDeliveryConfig["name"] = fmt.Sprintf("%s-manifest", p.appName)
 	}
@@ -212,6 +223,7 @@ func (p *DeliveryConfigProcessor) Save() error {
 
 	deliveryFile := filepath.Join(p.dirName, p.fileName)
 
+	log.Printf("Writing to %s", deliveryFile)
 	err = ioutil.WriteFile(deliveryFile, output, 0644)
 	if err != nil {
 		return stacktrace.Propagate(err, "")
@@ -245,22 +257,27 @@ func (p *DeliveryConfigProcessor) WhichEnvironment(resource *ExportableResource)
 }
 
 func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, envName string, content []byte) error {
-	data, err := bytesToData(content)
+	data, err := p.bytesToData(content)
 	if err != nil {
 		return stacktrace.Propagate(err, "failed to parse content")
 	}
 	envIx := p.findEnvIndex(envName)
 	if environments, ok := p.rawDeliveryConfig["environments"].([]interface{}); !ok || envIx < 0 {
 		// new environment
-		environments = append(environments, map[interface{}]interface{}{
+		environments = append(environments, map[string]interface{}{
 			"name":          envName,
 			"constraints":   []interface{}{DefaultEnvironmentConstraint},
 			"notifications": []interface{}{},
 			"resources":     []interface{}{data},
 		})
 		p.rawDeliveryConfig["environments"] = environments
+		// update in memory struct in case we look for this environment again later
+		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, DeliveryEnvironment{
+			Name:      envName,
+			Resources: []DeliveryResource{DeliveryResource{}},
+		})
 	} else {
-		if env, ok := environments[envIx].(map[interface{}]interface{}); ok {
+		if env, ok := environments[envIx].(map[string]interface{}); ok {
 			if _, ok := env["constraints"].([]interface{}); !ok {
 				env["constraints"] = []interface{}{DefaultEnvironmentConstraint}
 			}
@@ -269,7 +286,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			}
 			if resources, ok := env["resources"].([]interface{}); ok {
 				resourceIx := p.findResourceIndex(resource, envIx)
-				if len(resources) < resourceIx {
+				if resourceIx < 0 {
 					resources = append(resources, data)
 				} else {
 					resources[resourceIx] = data
@@ -283,8 +300,8 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	return nil
 }
 
-func bytesToData(content []byte) (data interface{}, err error) {
-	return &data, json.Unmarshal(content, &data)
+func (p *DeliveryConfigProcessor) bytesToData(content []byte) (data interface{}, err error) {
+	return data, p.yamlUnmarshal(content, &data)
 }
 
 func (p *DeliveryConfigProcessor) findEnvIndex(envName string) int {
@@ -303,6 +320,8 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	}
 
 	for ix, resource := range p.deliveryConfig.Environments[envIx].Resources {
+		// log.Printf("Resource Kind: %s CloudProvider: %s Account: %s Name: %s", resource.Kind, resource.CloudProvider(), resource.Account(), resource.Name())
+		// log.Printf("Search   Kind: %s CloudProvider: %s Account: %s Name: %s", search.ResourceType, search.CloudProvider, search.Account, search.Name)
 		if resource.Kind != search.ResourceType ||
 			resource.CloudProvider() != search.CloudProvider ||
 			resource.Account() != search.Account ||

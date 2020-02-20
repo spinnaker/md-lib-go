@@ -48,7 +48,7 @@ func WithHTTPClient(client func(*http.Request) (*http.Response, error)) ClientOp
 func defaultHTTPClient(req *http.Request) (*http.Response, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return resp, stacktrace.Propagate(err, "failed to GET %q", req.URL.String())
+		return resp, stacktrace.Propagate(err, "failed to handle %q", req.URL.String())
 	}
 	return resp, nil
 }

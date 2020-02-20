@@ -1,0 +1,158 @@
+[
+  {
+    "name": "testing",
+    "manifestName": "myapp-manifest",
+    "resourceDiffs": [
+      {
+        "status": "NO_DIFF",
+        "resourceId": "ec2:security-group:test:myapp",
+        "resource": {
+          "apiVersion": "ec2.spinnaker.netflix.com/v1",
+          "kind": "security-group",
+          "metadata": {
+            "serviceAccount": "myteam@example.com",
+            "id": "ec2:security-group:test:myapp",
+            "uid": "01234567890123456789",
+            "application": "myapp"
+          },
+          "spec": {
+            "moniker": {
+              "app": "myapp"
+            },
+            "locations": {
+              "account": "test",
+              "vpc": "vpc0",
+              "regions": [
+                {
+                  "name": "us-east-1"
+                }
+              ]
+            },
+            "description": "Security Group for myapp",
+            "inboundRules": []
+          }
+        }
+      },
+      {
+        "status": "NO_DIFF",
+        "resourceId": "ec2:cluster:test:myapp",
+        "resource": {
+          "apiVersion": "ec2.spinnaker.netflix.com/v1",
+          "kind": "cluster",
+          "metadata": {},
+          "spec": {
+            "dependencies": {
+              "securityGroupNames": [
+                "myapp"
+              ]
+            },
+            "deployWith": {
+              "delayBeforeDisable": "PT0S",
+              "delayBeforeScaleDown": "PT0S",
+              "maxServerGroups": 2,
+              "resizePreviousToZero": false,
+              "rollbackOnFailure": true,
+              "strategy": "red-black"
+            },
+            "health": {
+              "terminationPolicies": [
+                "Default"
+              ]
+            },
+            "imageProvider": {
+              "reference": "myapp"
+            },
+            "locations": {
+              "account": "test",
+              "regions": [
+                {
+                  "name": "us-east-1"
+                }
+              ]
+            },
+            "moniker": {
+              "app": "myapp"
+            }
+          }
+        }
+      },
+      {
+        "status": "DIFF",
+        "resourceId": "titus:cluster:titustest:myapp",
+        "resource": {
+          "apiVersion": "titus.spinnaker.netflix.com/v1",
+          "kind": "cluster",
+          "metadata": {
+            "serviceAccount": "myteam@example.com",
+            "id": "titus:cluster:titustest:myapp",
+            "uid": "01234567890123456789",
+            "application": "myapp"
+          },
+          "spec": {
+            "moniker": {
+              "app": "myapp"
+            },
+            "deployWith": {
+              "strategy": "red-black",
+              "rollbackOnFailure": true,
+              "resizePreviousToZero": false,
+              "maxServerGroups": 2,
+              "delayBeforeDisable": "PT0S",
+              "delayBeforeScaleDown": "PT0S"
+            },
+            "locations": {
+              "account": "titusprodvpc",
+              "vpc": "vpc0",
+              "regions": [
+                {
+                  "name": "us-east-1"
+                }
+              ]
+            },
+            "overrides": {},
+            "container": {
+              "organization": "myteam",
+              "image": "myapp-test",
+              "tagVersionStrategy": "semver-job-commit-by-semver"
+            },
+            "dependencies": {
+              "securityGroupNames": [
+                "myapp"
+              ]
+            },
+            "resources": {
+              "cpu": 2,
+              "disk": 20000,
+              "gpu": 0,
+              "memory": 1024,
+              "networkMbps": 128
+            }
+          }
+        },
+        "diff": {
+          "/{us-east-1}": {
+            "state": "CHANGED"
+          },
+          "/{us-east-1}/resources": {
+            "state": "CHANGED"
+          },
+          "/{us-east-1}/resources/cpu": {
+            "state": "CHANGED",
+            "desired": "2",
+            "current": "1"
+          },
+          "/{us-east-1}/resources/disk": {
+            "state": "CHANGED",
+            "desired": "20000",
+            "current": "10000"
+          },
+          "/{us-east-1}/resources/memory": {
+            "state": "CHANGED",
+            "desired": "1024",
+            "current": "512"
+          }
+        }
+      }
+    ]
+  }
+]

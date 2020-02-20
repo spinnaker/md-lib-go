@@ -1,0 +1,94 @@
+application: myapp
+artifacts:
+- name: myapp
+  type: deb
+- name: myteam/myapp-test
+  tagVersionStrategy: semver-job-commit-by-job
+  type: docker
+environments:
+- constraints: []
+  name: testing
+  notifications: []
+  resources:
+  - apiVersion: ec2.spinnaker.netflix.com/v1
+    kind: cluster
+    metadata: {}
+    spec:
+      capacity:
+        desired: 1
+        max: 1
+        min: 1
+      dependencies:
+        securityGroupNames:
+        - myapp
+      deployWith:
+        strategy: highlander
+      health:
+        terminationPolicies:
+        - Default
+      imageProvider:
+        reference: myapp
+      launchConfiguration:
+        instanceType: t2.nano
+      locations:
+        account: test
+        regions:
+        - name: us-east-1
+      moniker:
+        app: myapp
+  - apiVersion: titus.spinnaker.netflix.com/v1
+    kind: cluster
+    metadata: {}
+    spec:
+      capacity:
+        desired: 1
+        max: 1
+        min: 1
+      capacityGroup: myapp
+      constraints:
+        hard: {}
+        soft:
+          ZoneBalance: "true"
+      container:
+        reference: myteam/myapp-test
+      containerAttributes: {}
+      dependencies:
+        securityGroupNames:
+        - myapp
+      deployWith:
+        strategy: highlander
+      entryPoint: ""
+      env: {}
+      iamProfile: myappInstanceProfile
+      locations:
+        account: titustest
+        regions:
+        - name: us-east-1
+        vpc: vpc0
+      migrationPolicy:
+        type: systemDefault
+      moniker:
+        app: myapp
+      overrides: {}
+      resources:
+        cpu: 1
+        disk: 10000
+        gpu: 0
+        memory: 512
+        networkMbps: 128
+      tags: {}
+  - apiVersion: ec2.spinnaker.netflix.com/v1
+    kind: security-group
+    metadata: {}
+    spec:
+      description: Security Group for myapp
+      inboundRules: []
+      locations:
+        account: test
+        regions:
+        - name: us-east-1
+        vpc: vpc0
+      moniker:
+        app: myapp
+name: myapp-manifest
+serviceAccount: myteam@example.com
