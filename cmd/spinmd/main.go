@@ -26,7 +26,7 @@ func (e exitCode) Error() string { return "" }
 func main() {
 	opts := options{}
 	flag.StringVar(&opts.appName, "app", "", "spinnaker application name")
-	flag.StringVar(&opts.serviceAccount, "sevice-account", "", "spinnaker service account")
+	flag.StringVar(&opts.serviceAccount, "service-account", "", "spinnaker service account")
 	flag.StringVar(&opts.configDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
 	flag.StringVar(&opts.configFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
 	flag.StringVar(&opts.baseURL, "baseurl", "", "base URL to reach spinnaker api")

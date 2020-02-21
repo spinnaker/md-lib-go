@@ -9,18 +9,28 @@ import (
 )
 
 const (
-	ClusterResourceType                 = "cluster"
-	LoadBalancerResourceType            = "load-balancer"
+	// ClusterResourceType is the keyword used to classify the resource type for clusters.
+	ClusterResourceType = "cluster"
+	// LoadBalancerResourceType is the keyword used to classify the resource type for classic elastic load balancers.
+	LoadBalancerResourceType = "load-balancer"
+	// ApplicationLoadBalancerResourceType is the keyword used to classify the resource type for an application load balancer.
 	ApplicationLoadBalancerResourceType = "application-load-balancer"
-	SecurityGroupResourceType           = "security-group"
+	// SecurityGroupResourceType is the keyword used to classify the resource type for security groups.
+	SecurityGroupResourceType = "security-group"
 
-	AWSCloudProvider   = "aws"
+	// AWSCloudProvider is the keyword used to classify that a resource is intended for AWS
+	AWSCloudProvider = "aws"
+	// TitusCloudProvider is the keyword used to classify that a resource is intended for Titus
 	TitusCloudProvider = "titus"
 
+	// DebianArtifactType is the keyword to to classify a debian artifact
 	DebianArtifactType = "deb"
+	// DockerArtifactType is the keyword to to classify a docker image artifact
 	DockerArtifactType = "docker"
 )
 
+// ExportableResource is structure to contain the necessary information to uniquely identify a resource stored
+// in the delivery config or to export from Spinnaker API.
 type ExportableResource struct {
 	ResourceType  string
 	CloudProvider string
@@ -28,14 +38,21 @@ type ExportableResource struct {
 	Name          string
 }
 
+// String returns a useful formatting string to display an ExportableResource.
 func (r ExportableResource) String() string {
 	return fmt.Sprintf("%s %s [%s/%s]", r.ResourceType, r.Name, r.CloudProvider, r.Account)
 }
 
+// ResourceSorter is a wrapper to help sort ExportableResources
 type ResourceSorter []*ExportableResource
 
-func (s ResourceSorter) Len() int      { return len(s) }
+// Len fulfills the sort.Interface requirement
+func (s ResourceSorter) Len() int { return len(s) }
+
+// Swap fulfills the sort.Interface requirement
 func (s ResourceSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+// Less fulfills the sort.Interface requirement
 func (s ResourceSorter) Less(i, j int) bool {
 	if s[i].ResourceType != s[j].ResourceType {
 		return s[i].ResourceType < s[j].ResourceType
@@ -49,10 +66,16 @@ func (s ResourceSorter) Less(i, j int) bool {
 	return s[i].Account < s[j].Account
 }
 
+// ArtifactSorter is a wrapper to help sort DeliveryArtifacts
 type ArtifactSorter []*DeliveryArtifact
 
-func (s ArtifactSorter) Len() int      { return len(s) }
+// Len fulfills the sort.Interface requirement
+func (s ArtifactSorter) Len() int { return len(s) }
+
+// Swap fulfills the sort.Interface requirement
 func (s ArtifactSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+// Less fulfills the sort.Interface requirement
 func (s ArtifactSorter) Less(i, j int) bool {
 	if s[i].Name != s[j].Name {
 		return s[i].Name < s[j].Name
@@ -63,6 +86,8 @@ func (s ArtifactSorter) Less(i, j int) bool {
 // Account is just a string type, used to make code more readable
 type Account = string
 
+// ApplicationResources is used to track all the resources for an application
+// as populated from FinndApplicationResources.
 type ApplicationResources struct {
 	AppName        string
 	ServerGroups   []ServerGroup
@@ -70,6 +95,8 @@ type ApplicationResources struct {
 	SecurityGroups map[Account]SecurityGroups
 }
 
+// FindApplicationResources will collect application resources from various Spinnaker REST
+// APIs, loading resources in parallel when possible.
 func FindApplicationResources(cli *Client, appName string) (*ApplicationResources, error) {
 	var g errgroup.Group
 	data := &ApplicationResources{
@@ -117,6 +144,8 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 	return data, nil
 }
 
+// ReferencedArtifacts will return a list of DeliveryArtifacts that are
+// referenced by currently deployed application resources.
 func ReferencedArtifacts(appData *ApplicationResources) []*DeliveryArtifact {
 	uniqArtifacts := map[DeliveryArtifact]struct{}{}
 
@@ -146,6 +175,8 @@ func ReferencedArtifacts(appData *ApplicationResources) []*DeliveryArtifact {
 	return artifacts
 }
 
+// ExportableApplicationResources will return a list of ExportableResources that
+// are found from the currently deployed application resources.
 func ExportableApplicationResources(appData *ApplicationResources) []*ExportableResource {
 	uniqResources := map[ExportableResource]struct{}{}
 
@@ -183,6 +214,8 @@ func ExportableApplicationResources(appData *ApplicationResources) []*Exportable
 	return exportable
 }
 
+// ExportResource will contact the Spinnaker REST API to collect the YAML delivery config representation for
+// a specific resource.
 func ExportResource(cli *Client, resource *ExportableResource, serviceAccount string) ([]byte, error) {
 	return commonRequest(cli, "GET",
 		fmt.Sprintf("/managed/resources/export/%s/%s/%s/%s?serviceAccount=%s",

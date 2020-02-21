@@ -14,7 +14,7 @@ func TestPublishCmd(t *testing.T) {
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
-				requests[fmt.Sprintf("%s %s", r.Method, r.URL.String())] += 1
+				requests[fmt.Sprintf("%s %s", r.Method, r.URL.String())]++
 				w.WriteHeader(http.StatusOK)
 			},
 		),

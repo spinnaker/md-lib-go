@@ -16,7 +16,7 @@ func TestDiffCmd(t *testing.T) {
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
-				requests[fmt.Sprintf("%s %s", r.Method, r.URL.String())] += 1
+				requests[fmt.Sprintf("%s %s", r.Method, r.URL.String())]++
 				responsePath := fmt.Sprintf("../../test-files/diff/responses%s/%s.json", r.URL.Path, r.Method)
 				w.Header().Set("Content-Type", "application/json")
 				if _, err := os.Stat(responsePath); err != nil {

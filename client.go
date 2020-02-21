@@ -12,20 +12,25 @@ import (
 )
 
 var (
+	//DefaultSpinnakerAPIBaseURL is the base url to be used for app spinnaker api calls. It can be set in code
+	// or overridden with the SPINNAKER_API_BASE_URL environment variable.
 	DefaultSpinnakerAPIBaseURL = os.Getenv("SPINNAKER_API_BASE_URL")
 )
 
+// Client holds details for connecting to the spinnaker REST API.
 type Client struct {
-	SpinnakerAPIBaseURL string
-	HTTPClient          func(*http.Request) (*http.Response, error)
+	spinnakerAPIBaseURL string
+	httpClient          func(*http.Request) (*http.Response, error)
 }
 
+// ClientOpt is an interface for variadic options when constructing a Client via NewClient
 type ClientOpt func(*Client)
 
+// NewClient constructs a Client and applies any provided ClientOpt
 func NewClient(opts ...ClientOpt) *Client {
 	c := &Client{
-		SpinnakerAPIBaseURL: DefaultSpinnakerAPIBaseURL,
-		HTTPClient:          defaultHTTPClient,
+		spinnakerAPIBaseURL: DefaultSpinnakerAPIBaseURL,
+		httpClient:          defaultHTTPClient,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -33,15 +38,17 @@ func NewClient(opts ...ClientOpt) *Client {
 	return c
 }
 
+// WithBaseURL is a ClientOpt to set the spinnakerAPIBaseURL via NewClient
 func WithBaseURL(baseURL string) ClientOpt {
 	return func(c *Client) {
-		c.SpinnakerAPIBaseURL = baseURL
+		c.spinnakerAPIBaseURL = baseURL
 	}
 }
 
+// WithHTTPClient is a ClientOpt to set the httpClient via NewClient
 func WithHTTPClient(client func(*http.Request) (*http.Response, error)) ClientOpt {
 	return func(c *Client) {
-		c.HTTPClient = client
+		c.httpClient = client
 	}
 }
 
@@ -68,10 +75,10 @@ func commonParsedGet(cli *Client, u string, result interface{}) error {
 }
 
 func commonRequest(cli *Client, method string, u string, body io.Reader) ([]byte, error) {
-	if cli.SpinnakerAPIBaseURL == "" {
+	if cli.spinnakerAPIBaseURL == "" {
 		return nil, stacktrace.NewError("SPINNAKER_API_BASE_URL environment variable not set")
 	}
-	u = fmt.Sprintf("%s%s", cli.SpinnakerAPIBaseURL, u)
+	u = fmt.Sprintf("%s%s", cli.spinnakerAPIBaseURL, u)
 
 	req, err := http.NewRequest(method, u, body)
 	if err != nil {
@@ -80,7 +87,7 @@ func commonRequest(cli *Client, method string, u string, body io.Reader) ([]byte
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := cli.HTTPClient(req)
+	resp, err := cli.httpClient(req)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "failed to %s %s", method, u)
 	}

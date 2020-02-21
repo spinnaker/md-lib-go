@@ -18,7 +18,7 @@ func TestExportCmd(t *testing.T) {
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
-				requests[fmt.Sprintf("%s %s", r.Method, r.URL.Path)] += 1
+				requests[fmt.Sprintf("%s %s", r.Method, r.URL.Path)]++
 				responsePath := fmt.Sprintf("../../test-files/export/responses%s/%s.json", r.URL.Path, r.Method)
 				w.Header().Set("Content-Type", "application/json")
 				if _, err := os.Stat(responsePath); err != nil {

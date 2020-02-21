@@ -16,9 +16,14 @@ import (
 )
 
 var (
-	DefaultDeliveryConfigFileName             = "spinnaker.yml"
-	DefaultDeliveryConfigDirName              = "."
-	DefaultEnvironmentConstraint  interface{} = map[string]string{
+	// DefaultDeliveryConfigFileName is the default name of the delivery config file for spinnaker managed delivery.
+	DefaultDeliveryConfigFileName = "spinnaker.yml"
+
+	// DefaultDeliveryConfigDirName is the default directory where the delivery config file is read and written to.
+	DefaultDeliveryConfigDirName = "."
+
+	// DefaultEnvironmentConstraint is the default constraint for an added environment while exporting new resources.
+	DefaultEnvironmentConstraint interface{} = map[string]string{
 		"type": "manual-judgement",
 	}
 )
@@ -68,6 +73,8 @@ func (r DeliveryResource) Account() string {
 	return r.Spec.Locations.Account
 }
 
+// CloudProvider retuurns the cloud provider for a resource.  Currently it
+// only return titus or aws
 func (r DeliveryResource) CloudProvider() string {
 	if strings.Contains(r.ApiVersion, "titus") {
 		return "titus"
@@ -101,6 +108,7 @@ type DeliveryResourceContainer struct {
 	TagVersionStrategy string `json:"tagVersionStrategy" yaml:"tagVersionStrategy"`
 }
 
+// DeliveryConfigProcessor is a structure to manage operations on a delivery config.
 type DeliveryConfigProcessor struct {
 	appName           string
 	serviceAccount    string
@@ -112,8 +120,10 @@ type DeliveryConfigProcessor struct {
 	yamlUnmarshal     func([]byte, interface{}) error
 }
 
+// ProcessorOption is the interface to provide variadic options to NewDeliveryConfigProcessor
 type ProcessorOption func(p *DeliveryConfigProcessor)
 
+// NewDeliveryConfigProcessor will create a DeliveryConfigProcessor and apply all provided options.
 func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcessor {
 	p := &DeliveryConfigProcessor{
 		fileName:      DefaultDeliveryConfigFileName,
@@ -127,36 +137,43 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 	return p
 }
 
+// WithDirectory is a ProcessorOption to set the directory where the delivery config is stored.
 func WithDirectory(d string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.dirName = d
 	}
 }
 
+// WithFile is a ProcessorOption to set the name of the delivery config file.
 func WithFile(f string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.fileName = f
 	}
 }
 
+// WithAppName is a ProcessorOption to set the name of the Spinnaker application name that the delivery config corresponds to.
+// It is only necessary to set when exporting/creating a delivery config.
 func WithAppName(a string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.appName = a
 	}
 }
 
+// WithServiceAccount is a ProcessorOption to set the service account used for access control for the delivery config operations.
 func WithServiceAccount(a string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.serviceAccount = a
 	}
 }
 
+// WithYAMLMarshal is a ProcessorOption to allow customizing how the delivery config is serialized to disk.
 func WithYAMLMarshal(marshaller func(interface{}) ([]byte, error)) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.yamlMarshal = marshaller
 	}
 }
 
+// WithYAMLUnmarshal is a ProcessorOption to allow customizing how the delivery config is loaded from disk.
 func WithYAMLUnmarshal(unmarshaller func([]byte, interface{}) error) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.yamlUnmarshal = unmarshaller
@@ -171,6 +188,7 @@ func defaultYAMLMarshal(opts interface{}) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
+// Load will load the delivery config files from disk.
 func (p *DeliveryConfigProcessor) Load() error {
 	p.rawDeliveryConfig = map[string]interface{}{}
 	p.deliveryConfig = DeliveryConfig{}
@@ -199,6 +217,7 @@ func (p *DeliveryConfigProcessor) Load() error {
 	return nil
 }
 
+// Save will serialize the delivery config to disk.
 func (p *DeliveryConfigProcessor) Save() error {
 	log.Printf("Saving")
 	if _, ok := p.rawDeliveryConfig["name"]; !ok && p.appName != "" {
@@ -231,6 +250,8 @@ func (p *DeliveryConfigProcessor) Save() error {
 	return nil
 }
 
+// AllEnvironments will return a list of the names of all the environments in the delivery config as well
+// as the default/recommended environment names: testing, staging, and production.
 func (p *DeliveryConfigProcessor) AllEnvironments() []string {
 	environments := []string{}
 	for _, env := range p.deliveryConfig.Environments {
@@ -252,10 +273,15 @@ func (p *DeliveryConfigProcessor) AllEnvironments() []string {
 	return environments
 }
 
+// WhichEnvironment will return the environment name for the given resource found in the delivery config.
+// It will return an empty string if the resource is not found in any environment.
 func (p *DeliveryConfigProcessor) WhichEnvironment(resource *ExportableResource) string {
+	// TODO
 	return "testing"
 }
 
+// UpsertResource will update (if exists) or insert (if new) a resource into the delivery config.  The resource will
+// be added to the environment that corresponds to envName if the resource is new.
 func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, envName string, content []byte) error {
 	data, err := p.bytesToData(content)
 	if err != nil {
@@ -274,27 +300,25 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		// update in memory struct in case we look for this environment again later
 		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, DeliveryEnvironment{
 			Name:      envName,
-			Resources: []DeliveryResource{DeliveryResource{}},
+			Resources: []DeliveryResource{{}},
 		})
-	} else {
-		if env, ok := environments[envIx].(map[string]interface{}); ok {
-			if _, ok := env["constraints"].([]interface{}); !ok {
-				env["constraints"] = []interface{}{DefaultEnvironmentConstraint}
+	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
+		if _, ok := env["constraints"].([]interface{}); !ok {
+			env["constraints"] = []interface{}{DefaultEnvironmentConstraint}
+		}
+		if _, ok := env["notifications"].([]interface{}); !ok {
+			env["notifications"] = []interface{}{}
+		}
+		if resources, ok := env["resources"].([]interface{}); ok {
+			resourceIx := p.findResourceIndex(resource, envIx)
+			if resourceIx < 0 {
+				resources = append(resources, data)
+			} else {
+				resources[resourceIx] = data
 			}
-			if _, ok := env["notifications"].([]interface{}); !ok {
-				env["notifications"] = []interface{}{}
-			}
-			if resources, ok := env["resources"].([]interface{}); ok {
-				resourceIx := p.findResourceIndex(resource, envIx)
-				if resourceIx < 0 {
-					resources = append(resources, data)
-				} else {
-					resources[resourceIx] = data
-				}
-				env["resources"] = resources
-				environments[envIx] = env
-				p.rawDeliveryConfig["environments"] = environments
-			}
+			env["resources"] = resources
+			environments[envIx] = env
+			p.rawDeliveryConfig["environments"] = environments
 		}
 	}
 	return nil
@@ -333,6 +357,7 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	return -1
 }
 
+// ResourceExists returns true if the provided resource is found currently in the delivery config.
 func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) bool {
 	for eix := range p.deliveryConfig.Environments {
 		rix := p.findResourceIndex(search, eix)
@@ -343,6 +368,7 @@ func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) boo
 	return false
 }
 
+// InsertArtifact will add an artifact to the delivery config if it is not already present.
 func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) {
 	for _, current := range p.deliveryConfig.Artifacts {
 		if current.Name == artifact.Name && current.Type == artifact.Type {
@@ -354,6 +380,8 @@ func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) {
 	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
 }
 
+// Publish will post the delivery config to the Spinnaker API so that Spinnaker
+// will update the Managed state for the application.
 func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 	if p.rawDeliveryConfig == nil {
 		err := p.Load()
@@ -391,6 +419,9 @@ type ManagedResourceDiff struct {
 	Diffs      map[string]ResourceDiff `json:"diff" yaml:"diff"`
 }
 
+// Diff will compare the delivery config file on disk with the currently deployed state of
+// the Spinnaker application and report any changes.  This can also be used to validate
+// a delivery config (errors will be returned when an invalid delivery config is submitted).
 func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, error) {
 	if p.rawDeliveryConfig == nil {
 		err := p.Load()
