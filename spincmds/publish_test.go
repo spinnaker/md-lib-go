@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPublishCmd(t *testing.T) {
+func TestPublish(t *testing.T) {
 	requests := map[string]int{}
 	ts := httptest.NewServer(
 		http.HandlerFunc(
@@ -25,10 +25,10 @@ func TestPublishCmd(t *testing.T) {
 	opts.AppName = "myapp"
 	opts.ServiceAccount = "myteam@example.com"
 	opts.BaseURL = ts.URL
-	opts.ConfigDir = "../../test-files/publish"
+	opts.ConfigDir = "../test-files/publish"
 	opts.ConfigFile = "spinnaker.yml"
 
-	err := PublishCmd(opts)
+	err := Publish(opts)
 	require.NoError(t, err)
 
 	// we expect a single POST to delivery-configs API

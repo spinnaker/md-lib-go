@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -10,12 +10,12 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-// DiffCmd is a command line interface to display differences between a delivery config on disk
+// Diff is a command line interface to display differences between a delivery config on disk
 // with what is actively deployed.
-func DiffCmd(opts *CommandOptions) error {
+func Diff(opts *CommandOptions) (int, error) {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
-		return err
+		return 0, err
 	}
 
 	cli := mdlib.NewClient(
@@ -31,10 +31,10 @@ func DiffCmd(opts *CommandOptions) error {
 
 	diffs, err := mdProcessor.Diff(cli)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	var exit exitCode
+	var exit int
 	for _, diff := range diffs {
 		status := ansi.Color(diff.Status, "yellow")
 		if diff.Status == "NO_DIFF" {
@@ -60,5 +60,5 @@ func DiffCmd(opts *CommandOptions) error {
 			}
 		}
 	}
-	return &exit
+	return exit, nil
 }

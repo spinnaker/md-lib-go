@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExportCmd(t *testing.T) {
+func TestExport(t *testing.T) {
 	requests := map[string]int{}
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				requests[fmt.Sprintf("%s %s", r.Method, r.URL.Path)]++
-				responsePath := fmt.Sprintf("../../test-files/export/responses%s/%s.json", r.URL.Path, r.Method)
+				responsePath := fmt.Sprintf("../test-files/export/responses%s/%s.json", r.URL.Path, r.Method)
 				w.Header().Set("Content-Type", "application/json")
 				if _, err := os.Stat(responsePath); err != nil {
-					responsePath = fmt.Sprintf("../../test-files/export/responses%s/%s.yml", r.URL.Path, r.Method)
+					responsePath = fmt.Sprintf("../test-files/export/responses%s/%s.yml", r.URL.Path, r.Method)
 					if _, err := os.Stat(responsePath); err != nil {
 						w.WriteHeader(http.StatusNotFound)
 						return
@@ -55,7 +55,7 @@ func TestExportCmd(t *testing.T) {
 		All:            true,
 		EnvName:        "testing",
 	}
-	err = ExportCmd(&exportOpts)
+	err = Export(&exportOpts)
 	require.NoError(t, err)
 
 	// we expect a bunch of GET requests to variious APIs
@@ -71,7 +71,7 @@ func TestExportCmd(t *testing.T) {
 
 	got, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
 	require.NoError(t, err)
-	expected, err := ioutil.ReadFile("../../test-files/export/spinnaker.yml.expected")
+	expected, err := ioutil.ReadFile("../test-files/export/spinnaker.yml.expected")
 	require.NoError(t, err)
 	require.Equal(t, string(expected), string(got))
 

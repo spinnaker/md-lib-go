@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDiffCmd(t *testing.T) {
+func TestDiff(t *testing.T) {
 	requests := map[string]int{}
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				requests[fmt.Sprintf("%s %s", r.Method, r.URL.String())]++
-				responsePath := fmt.Sprintf("../../test-files/diff/responses%s/%s.json", r.URL.Path, r.Method)
+				responsePath := fmt.Sprintf("../test-files/diff/responses%s/%s.json", r.URL.Path, r.Method)
 				w.Header().Set("Content-Type", "application/json")
 				if _, err := os.Stat(responsePath); err != nil {
 					w.WriteHeader(http.StatusNotFound)
@@ -37,13 +37,12 @@ func TestDiffCmd(t *testing.T) {
 	opts.AppName = "myapp"
 	opts.ServiceAccount = "myteam@example.com"
 	opts.BaseURL = ts.URL
-	opts.ConfigDir = "../../test-files/diff"
+	opts.ConfigDir = "../test-files/diff"
 	opts.ConfigFile = "spinnaker.yml"
 
-	err := DiffCmd(opts)
-	// we should get an exitCode(1) back since there are diffs for this test
-	expectedError := exitCode(1)
-	require.Equal(t, &expectedError, err)
+	exitCode, err := Diff(opts)
+	require.NoError(t, err)
+	require.Equal(t, 1, exitCode)
 
 	// we expect a single POST to delivery-configs/diff diff API
 	require.Equal(t, map[string]int{

@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -16,9 +16,9 @@ type ExportOptions struct {
 	EnvName string
 }
 
-// ExportCmd is a command line interface to discover exportable Spinnaker resources and then
+// Export is a command line interface to discover exportable Spinnaker resources and then
 // optional add those resources to a local delivery config file to be later managed by Spinnaker.
-func ExportCmd(opts *ExportOptions) error {
+func Export(opts *ExportOptions) error {
 	cli := mdlib.NewClient(
 		mdlib.WithBaseURL(opts.BaseURL),
 	)

@@ -1,4 +1,4 @@
-package main
+package spincmds
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-// PublishCmd is a command line interface for publishing a local delivery conifg
+// Publish is a command line interface for publishing a local delivery conifg
 // to be managed by Spinnaker.
-func PublishCmd(opts *CommandOptions) error {
+func Publish(opts *CommandOptions) error {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
 		return err
