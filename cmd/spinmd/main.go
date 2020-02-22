@@ -9,24 +9,25 @@ import (
 
 	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
-	"github.com/spinnaker/md-lib-go/spincmds"
+	"github.com/spinnaker/md-lib-go/mdcli"
 )
 
 func main() {
-	opts := spincmds.NewCommandOptions()
-	flag.StringVar(&opts.AppName, "app", "", "spinnaker application name")
-	flag.StringVar(&opts.ServiceAccount, "service-account", "", "spinnaker service account")
-	flag.StringVar(&opts.ConfigDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
-	flag.StringVar(&opts.ConfigFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
-	flag.StringVar(&opts.BaseURL, "baseurl", "", "base URL to reach spinnaker api")
+	opts := mdcli.NewCommandOptions()
 
-	flag.Parse()
+	globalFlags := flag.NewFlagSet("", flag.ContinueOnError)
 
-	args := flag.Args()
-	if len(args) != 1 {
+	globalFlags.StringVar(&opts.ConfigDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
+	globalFlags.StringVar(&opts.ConfigFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
+	globalFlags.StringVar(&opts.BaseURL, "baseurl", "", "base URL to reach spinnaker api")
+
+	globalFlags.Parse(os.Args[1:])
+	args := globalFlags.Args()
+
+	if len(args) < 1 {
 		fmt.Printf("Usage: %s [flags] export|publish|diff\n", filepath.Base(os.Args[0]))
 		fmt.Printf("Flags:\n")
-		flag.PrintDefaults()
+		globalFlags.PrintDefaults()
 		return
 	}
 
@@ -34,18 +35,32 @@ func main() {
 	var err error
 	switch args[0] {
 	case "export":
-		exportOpts := spincmds.ExportOptions{
-			CommandOptions: *opts,
-		}
+		var appName, serviceAccount string
+		exportAll := false
+		envName := ""
+
 		exportFlags := flag.NewFlagSet("export", flag.ExitOnError)
-		exportFlags.BoolVar(&exportOpts.All, "all", false, "export all options, skip prompt")
-		exportFlags.StringVar(&exportOpts.EnvName, "env", "", "assing exported resources to given environment, skip prompt")
+		exportFlags.StringVar(&appName, "app", "", "spinnaker application name")
+		exportFlags.StringVar(&serviceAccount, "service-account", "", "spinnaker service account")
+		exportFlags.BoolVar(&exportAll, "all", false, "export all options, skip prompt")
+		exportFlags.StringVar(&envName, "env", "", "assign exported resources to given environment, skip prompt")
 		exportFlags.Parse(args[1:])
-		err = spincmds.Export(&exportOpts)
+
+		if exportFlags.NArg() > 0 {
+			exportFlags.Usage()
+			return
+		}
+		err = mdcli.Export(
+			opts,
+			appName,
+			serviceAccount,
+			mdcli.ExportAll(exportAll),
+			mdcli.AssumeEnvName(envName),
+		)
 	case "publish":
-		err = spincmds.Publish(opts)
+		err = mdcli.Publish(opts)
 	case "diff":
-		exitCode, err = spincmds.Diff(opts)
+		exitCode, err = mdcli.Diff(opts)
 	default:
 		log.Fatalf(`Unexpected command %q, expected "export", "publish", or "diff" command`, args[0])
 	}

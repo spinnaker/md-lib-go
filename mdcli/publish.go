@@ -1,4 +1,4 @@
-package spincmds
+package mdcli
 
 import (
 	"fmt"
@@ -23,8 +23,6 @@ func Publish(opts *CommandOptions) error {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
-		mdlib.WithAppName(opts.AppName),
-		mdlib.WithServiceAccount(opts.ServiceAccount),
 	)
 
 	err := mdProcessor.Publish(cli)

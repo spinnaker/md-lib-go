@@ -46,7 +46,17 @@ type DeliveryEnvironment struct {
 type DeliveryArtifact struct {
 	Name               string
 	Type               string
+	Reference          string `json:"reference,omitempty" yaml:"reference,omitempty"`
 	TagVersionStrategy string `json:"tagVersionStrategy.omitempty" yaml:"tagVersionStrategy,omitempty"`
+}
+
+// RefName returns the Reference value for comparisons.  it will use the
+// Reference value if defined, otherwise default to the Name value.
+func (a *DeliveryArtifact) RefName() string {
+	if a.Reference != "" {
+		return a.Reference
+	}
+	return a.Name
 }
 
 // DeliveryResource contains the necessary configuration for a managed delivery resource

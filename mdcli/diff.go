@@ -1,4 +1,4 @@
-package spincmds
+package mdcli
 
 import (
 	"fmt"
@@ -25,8 +25,6 @@ func Diff(opts *CommandOptions) (int, error) {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
-		mdlib.WithAppName(opts.AppName),
-		mdlib.WithServiceAccount(opts.ServiceAccount),
 	)
 
 	diffs, err := mdProcessor.Diff(cli)

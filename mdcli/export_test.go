@@ -1,4 +1,4 @@
-package spincmds
+package mdcli
 
 import (
 	"fmt"
@@ -44,18 +44,17 @@ func TestExport(t *testing.T) {
 	defer os.RemoveAll(tdir)
 
 	opts := NewCommandOptions()
-	opts.AppName = "myapp"
-	opts.ServiceAccount = "myteam@example.com"
 	opts.BaseURL = ts.URL
 	opts.ConfigDir = tdir
 	opts.ConfigFile = "spinnaker.yml"
 
-	exportOpts := ExportOptions{
-		CommandOptions: *opts,
-		All:            true,
-		EnvName:        "testing",
-	}
-	err = Export(&exportOpts)
+	err = Export(
+		opts,
+		"myapp",
+		"myteam@example.com",
+		AssumeEnvName("testing"),
+		ExportAll(true),
+	)
 	require.NoError(t, err)
 
 	// we expect a bunch of GET requests to variious APIs

@@ -30,7 +30,7 @@ type ClientOpt func(*Client)
 func NewClient(opts ...ClientOpt) *Client {
 	c := &Client{
 		spinnakerAPIBaseURL: DefaultSpinnakerAPIBaseURL,
-		httpClient:          defaultHTTPClient,
+		httpClient:          http.DefaultClient.Do,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -50,14 +50,6 @@ func WithHTTPClient(client func(*http.Request) (*http.Response, error)) ClientOp
 	return func(c *Client) {
 		c.httpClient = client
 	}
-}
-
-func defaultHTTPClient(req *http.Request) (*http.Response, error) {
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return resp, stacktrace.Propagate(err, "failed to handle %q", req.URL.String())
-	}
-	return resp, nil
 }
 
 func commonParsedGet(cli *Client, u string, result interface{}) error {

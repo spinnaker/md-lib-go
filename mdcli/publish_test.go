@@ -1,4 +1,4 @@
-package spincmds
+package mdcli
 
 import (
 	"fmt"
@@ -22,8 +22,6 @@ func TestPublish(t *testing.T) {
 	defer ts.Close()
 
 	opts := NewCommandOptions()
-	opts.AppName = "myapp"
-	opts.ServiceAccount = "myteam@example.com"
 	opts.BaseURL = ts.URL
 	opts.ConfigDir = "../test-files/publish"
 	opts.ConfigFile = "spinnaker.yml"
