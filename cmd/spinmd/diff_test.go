@@ -33,15 +33,14 @@ func TestDiffCmd(t *testing.T) {
 	)
 	defer ts.Close()
 
-	opts := options{
-		appName:        "myapp",
-		serviceAccount: "myteam@example.com",
-		baseURL:        ts.URL,
-		configDir:      "../../test-files/diff",
-		configFile:     "spinnaker.yml",
-	}
+	opts := NewCommandOptions()
+	opts.AppName = "myapp"
+	opts.ServiceAccount = "myteam@example.com"
+	opts.BaseURL = ts.URL
+	opts.ConfigDir = "../../test-files/diff"
+	opts.ConfigFile = "spinnaker.yml"
 
-	err := diffCmd(&opts)
+	err := DiffCmd(opts)
 	// we should get an exitCode(1) back since there are diffs for this test
 	expectedError := exitCode(1)
 	require.Equal(t, &expectedError, err)

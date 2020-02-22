@@ -21,15 +21,14 @@ func TestPublishCmd(t *testing.T) {
 	)
 	defer ts.Close()
 
-	opts := options{
-		appName:        "myapp",
-		serviceAccount: "myteam@example.com",
-		baseURL:        ts.URL,
-		configDir:      "../../test-files/publish",
-		configFile:     "spinnaker.yml",
-	}
+	opts := NewCommandOptions()
+	opts.AppName = "myapp"
+	opts.ServiceAccount = "myteam@example.com"
+	opts.BaseURL = ts.URL
+	opts.ConfigDir = "../../test-files/publish"
+	opts.ConfigFile = "spinnaker.yml"
 
-	err := publishCmd(&opts)
+	err := PublishCmd(opts)
 	require.NoError(t, err)
 
 	// we expect a single POST to delivery-configs API

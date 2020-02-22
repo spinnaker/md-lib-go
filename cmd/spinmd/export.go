@@ -2,28 +2,30 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"sort"
-	"syscall"
 
 	"github.com/AlecAivazis/survey/v2"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-type exportOptions struct {
-	all     bool
-	envName string
+// ExportOptions are options specifically for the Export Command.
+type ExportOptions struct {
+	CommandOptions
+	All     bool
+	EnvName string
 }
 
-func exportCmd(opts *options, exportOpts *exportOptions) error {
+// ExportCmd is a command line interface to discover exportable Spinnaker resources and then
+// optional add those resources to a local delivery config file to be later managed by Spinnaker.
+func ExportCmd(opts *ExportOptions) error {
 	cli := mdlib.NewClient(
-		mdlib.WithBaseURL(opts.baseURL),
+		mdlib.WithBaseURL(opts.BaseURL),
 	)
 
-	log.Printf("Loading spinnaker resources for %s", opts.appName)
+	opts.Logger.Printf("Loading spinnaker resources for %s", opts.AppName)
 
-	appData, err := mdlib.FindApplicationResources(cli, opts.appName)
+	appData, err := mdlib.FindApplicationResources(cli, opts.AppName)
 	if err != nil {
 		return err
 	}
@@ -32,15 +34,15 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 	artifacts := mdlib.ReferencedArtifacts(appData)
 
 	if len(exportable) == 0 {
-		log.Printf("Found no resources to export for Spinnaker app %q", opts.appName)
+		opts.Logger.Printf("Found no resources to export for Spinnaker app %q", opts.AppName)
 		return nil
 	}
 
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
-		mdlib.WithDirectory(opts.configDir),
-		mdlib.WithFile(opts.configFile),
-		mdlib.WithAppName(opts.appName),
-		mdlib.WithServiceAccount(opts.serviceAccount),
+		mdlib.WithDirectory(opts.ConfigDir),
+		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithAppName(opts.AppName),
+		mdlib.WithServiceAccount(opts.ServiceAccount),
 	)
 
 	err = mdProcessor.Load()
@@ -53,7 +55,7 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 	sort.Sort(mdlib.ResourceSorter(exportable))
 
 	selected := []int{}
-	if exportOpts.all {
+	if opts.All {
 		for i := range exportable {
 			selected = append(selected, i)
 		}
@@ -71,7 +73,7 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 			options = append(options, option)
 		}
 
-		_, h, err := terminal.GetSize(syscall.Stdout)
+		_, h, err := terminal.GetSize(int(opts.Stdout.Fd()))
 		if err != nil {
 			return err
 		}
@@ -88,6 +90,7 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 				PageSize: pageSize,
 			},
 			&selected,
+			survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 		)
 
 		if err != nil {
@@ -98,13 +101,13 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 	selectedEnvironments := map[string]string{}
 	for _, selection := range selected {
 		resource := exportable[selection]
-		log.Printf("Exporting %s", resource)
-		content, err := mdlib.ExportResource(cli, resource, opts.serviceAccount)
+		opts.Logger.Printf("Exporting %s", resource)
+		content, err := mdlib.ExportResource(cli, resource, opts.ServiceAccount)
 		if err != nil {
 			return err
 		}
 
-		envName := exportOpts.envName
+		envName := opts.EnvName
 		if envName == "" {
 			// not overridden via options so default to current delivery config env
 			envName = mdProcessor.WhichEnvironment(resource)
@@ -119,6 +122,7 @@ func exportCmd(opts *options, exportOpts *exportOptions) error {
 					Default: selectedEnvironment,
 				},
 				&selectedEnvironment,
+				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 			)
 			if err != nil {
 				return err

@@ -1,28 +1,30 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-func publishCmd(opts *options) error {
-	configPath := filepath.Join(opts.configDir, opts.configFile)
+// PublishCmd is a command line interface for publishing a local delivery conifg
+// to be managed by Spinnaker.
+func PublishCmd(opts *CommandOptions) error {
+	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
 		return err
 	}
 
 	cli := mdlib.NewClient(
-		mdlib.WithBaseURL(opts.baseURL),
+		mdlib.WithBaseURL(opts.BaseURL),
 	)
 
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
-		mdlib.WithDirectory(opts.configDir),
-		mdlib.WithFile(opts.configFile),
-		mdlib.WithAppName(opts.appName),
-		mdlib.WithServiceAccount(opts.serviceAccount),
+		mdlib.WithDirectory(opts.ConfigDir),
+		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithAppName(opts.AppName),
+		mdlib.WithServiceAccount(opts.ServiceAccount),
 	)
 
 	err := mdProcessor.Publish(cli)
@@ -30,6 +32,6 @@ func publishCmd(opts *options) error {
 		return err
 	}
 
-	log.Println("OK")
+	fmt.Fprintf(opts.Stdout, "OK")
 	return nil
 }

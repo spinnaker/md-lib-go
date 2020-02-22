@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,12 +12,44 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-type options struct {
-	appName        string
-	serviceAccount string
-	configDir      string
-	configFile     string
-	baseURL        string
+// CommandOptions are global options available for each command
+type CommandOptions struct {
+	AppName        string
+	ServiceAccount string
+	ConfigDir      string
+	ConfigFile     string
+	BaseURL        string
+	Logger         Logger
+	Stdout         FdWriter
+	Stderr         io.Writer
+	Stdin          FdReader
+}
+
+// NewCommandOptions creates a new CommandOptions struct with a default logger and stdio
+func NewCommandOptions() *CommandOptions {
+	return &CommandOptions{
+		Logger: log.New(os.Stderr, "", log.LstdFlags),
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Stdin:  os.Stdin,
+	}
+}
+
+// FdWriter represents an io.Writer with a Fd property. (*os.File implements this)
+type FdWriter interface {
+	io.Writer
+	Fd() uintptr
+}
+
+// FdReader represents an io.Reader with a Fd property. (*os.File implements this)
+type FdReader interface {
+	io.Reader
+	Fd() uintptr
+}
+
+// Logger is a simple interface to abstract the logger implementation.  Go core `log` is used by default.
+type Logger interface {
+	Printf(format string, v ...interface{})
 }
 
 type exitCode int
@@ -24,12 +57,12 @@ type exitCode int
 func (e exitCode) Error() string { return "" }
 
 func main() {
-	opts := options{}
-	flag.StringVar(&opts.appName, "app", "", "spinnaker application name")
-	flag.StringVar(&opts.serviceAccount, "service-account", "", "spinnaker service account")
-	flag.StringVar(&opts.configDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
-	flag.StringVar(&opts.configFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
-	flag.StringVar(&opts.baseURL, "baseurl", "", "base URL to reach spinnaker api")
+	opts := NewCommandOptions()
+	flag.StringVar(&opts.AppName, "app", "", "spinnaker application name")
+	flag.StringVar(&opts.ServiceAccount, "service-account", "", "spinnaker service account")
+	flag.StringVar(&opts.ConfigDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
+	flag.StringVar(&opts.ConfigFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
+	flag.StringVar(&opts.BaseURL, "baseurl", "", "base URL to reach spinnaker api")
 
 	flag.Parse()
 
@@ -44,16 +77,18 @@ func main() {
 	var err error
 	switch args[0] {
 	case "export":
-		exportOpts := exportOptions{}
+		exportOpts := ExportOptions{
+			CommandOptions: *opts,
+		}
 		exportFlags := flag.NewFlagSet("export", flag.ExitOnError)
-		exportFlags.BoolVar(&exportOpts.all, "all", false, "export all options, skip prompt")
-		exportFlags.StringVar(&exportOpts.envName, "env", "", "assing exported resources to given environment, skip prompt")
+		exportFlags.BoolVar(&exportOpts.All, "all", false, "export all options, skip prompt")
+		exportFlags.StringVar(&exportOpts.EnvName, "env", "", "assing exported resources to given environment, skip prompt")
 		exportFlags.Parse(args[1:])
-		err = exportCmd(&opts, &exportOpts)
+		err = ExportCmd(&exportOpts)
 	case "publish":
-		err = publishCmd(&opts)
+		err = PublishCmd(opts)
 	case "diff":
-		err = diffCmd(&opts)
+		err = DiffCmd(opts)
 	default:
 		log.Fatalf(`Unexpected command %q, expected "export", "publish", or "diff" command`, args[0])
 	}

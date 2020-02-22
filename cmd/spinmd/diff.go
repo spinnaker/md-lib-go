@@ -10,21 +10,23 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-func diffCmd(opts *options) error {
-	configPath := filepath.Join(opts.configDir, opts.configFile)
+// DiffCmd is a command line interface to display differences between a delivery config on disk
+// with what is actively deployed.
+func DiffCmd(opts *CommandOptions) error {
+	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
 		return err
 	}
 
 	cli := mdlib.NewClient(
-		mdlib.WithBaseURL(opts.baseURL),
+		mdlib.WithBaseURL(opts.BaseURL),
 	)
 
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
-		mdlib.WithDirectory(opts.configDir),
-		mdlib.WithFile(opts.configFile),
-		mdlib.WithAppName(opts.appName),
-		mdlib.WithServiceAccount(opts.serviceAccount),
+		mdlib.WithDirectory(opts.ConfigDir),
+		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithAppName(opts.AppName),
+		mdlib.WithServiceAccount(opts.ServiceAccount),
 	)
 
 	diffs, err := mdProcessor.Diff(cli)
@@ -40,7 +42,7 @@ func diffCmd(opts *options) error {
 		} else {
 			exit = 1
 		}
-		fmt.Printf("=> %s %s\n", status, diff.ResourceID)
+		fmt.Fprintf(opts.Stdout, "=> %s %s\n", status, diff.ResourceID)
 		if len(diff.Diffs) > 0 {
 			records := []string{}
 			for name := range diff.Diffs {
@@ -49,11 +51,11 @@ func diffCmd(opts *options) error {
 			sort.Strings(records)
 			for _, name := range records {
 				if diff.Diffs[name].Current != "" {
-					fmt.Printf("%s%s%s\n", ansi.ColorCode("yellow"), name, ansi.ColorCode("reset"))
-					fmt.Printf("%s--- current%s\n", ansi.ColorCode("yellow"), ansi.ColorCode("reset"))
-					fmt.Printf("%s+++ desired%s\n", ansi.ColorCode("yellow"), ansi.ColorCode("reset"))
-					fmt.Printf("%s- %s%s\n", ansi.ColorCode("red"), diff.Diffs[name].Current, ansi.ColorCode("reset"))
-					fmt.Printf("%s+ %s%s\n", ansi.ColorCode("green"), diff.Diffs[name].Desired, ansi.ColorCode("reset"))
+					fmt.Fprintf(opts.Stdout, "%s%s%s\n", ansi.ColorCode("yellow"), name, ansi.ColorCode("reset"))
+					fmt.Fprintf(opts.Stdout, "%s--- current%s\n", ansi.ColorCode("yellow"), ansi.ColorCode("reset"))
+					fmt.Fprintf(opts.Stdout, "%s+++ desired%s\n", ansi.ColorCode("yellow"), ansi.ColorCode("reset"))
+					fmt.Fprintf(opts.Stdout, "%s- %s%s\n", ansi.ColorCode("red"), diff.Diffs[name].Current, ansi.ColorCode("reset"))
+					fmt.Fprintf(opts.Stdout, "%s+ %s%s\n", ansi.ColorCode("green"), diff.Diffs[name].Desired, ansi.ColorCode("reset"))
 				}
 			}
 		}

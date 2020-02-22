@@ -43,15 +43,19 @@ func TestExportCmd(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tdir)
 
-	opts := options{
-		appName:        "myapp",
-		serviceAccount: "myteam@example.com",
-		baseURL:        ts.URL,
-		configDir:      tdir,
-		configFile:     "spinnaker.yml",
-	}
+	opts := NewCommandOptions()
+	opts.AppName = "myapp"
+	opts.ServiceAccount = "myteam@example.com"
+	opts.BaseURL = ts.URL
+	opts.ConfigDir = tdir
+	opts.ConfigFile = "spinnaker.yml"
 
-	err = exportCmd(&opts, &exportOptions{all: true, envName: "testing"})
+	exportOpts := ExportOptions{
+		CommandOptions: *opts,
+		All:            true,
+		EnvName:        "testing",
+	}
+	err = ExportCmd(&exportOpts)
 	require.NoError(t, err)
 
 	// we expect a bunch of GET requests to variious APIs
@@ -65,7 +69,7 @@ func TestExportCmd(t *testing.T) {
 		"GET /securityGroups/titustest":                               1,
 	}, requests)
 
-	got, err := ioutil.ReadFile(filepath.Join(opts.configDir, opts.configFile))
+	got, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
 	require.NoError(t, err)
 	expected, err := ioutil.ReadFile("../../test-files/export/spinnaker.yml.expected")
 	require.NoError(t, err)
