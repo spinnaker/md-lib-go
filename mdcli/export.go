@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/AlecAivazis/survey/v2"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // exportOptions are options specifically for the Export Command.
@@ -122,25 +122,25 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	sort.Sort(mdlib.ResourceSorter(exportable))
 
-	selected := []int{}
-	if exportOpts.all {
-		for i := range exportable {
-			selected = append(selected, i)
+	options := []string{}
+	defaults := []string{}
+	optionsIndexByName := map[string]int{}
+	for ix, resource := range exportable {
+		var option string
+		if mdProcessor.ResourceExists(resource) {
+			option = fmt.Sprintf("Update %s", resource)
+		} else {
+			option = fmt.Sprintf("Export %s", resource)
+			defaults = append(defaults, option)
 		}
-	} else {
-		options := []string{}
-		defaults := []string{}
-		for _, resource := range exportable {
-			var option string
-			if mdProcessor.ResourceExists(resource) {
-				option = fmt.Sprintf("Update %s", resource)
-			} else {
-				option = fmt.Sprintf("Export %s", resource)
-				defaults = append(defaults, option)
-			}
-			options = append(options, option)
-		}
+		options = append(options, option)
+		optionsIndexByName[option] = ix
+	}
 
+	selected := []string{}
+	if exportOpts.all {
+		selected = options
+	} else {
 		_, h, err := terminal.GetSize(int(opts.Stdout.Fd()))
 		if err != nil {
 			return err
@@ -158,6 +158,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				PageSize: pageSize,
 			},
 			&selected,
+			nil,
 			survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 		)
 
@@ -168,7 +169,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	selectedEnvironments := map[string]string{}
 	for _, selection := range selected {
-		resource := exportable[selection]
+		resource := exportable[optionsIndexByName[selection]]
 		opts.Logger.Printf("Exporting %s", resource)
 		content, err := exportOpts.customResourceExporter(cli, resource, serviceAccount)
 		if err != nil {
@@ -190,6 +191,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 					Default: selectedEnvironment,
 				},
 				&selectedEnvironment,
+				nil,
 				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 			)
 			if err != nil {
