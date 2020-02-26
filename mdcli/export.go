@@ -218,7 +218,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				return err
 			}
 			envName = selectedEnvironment
-			selectedEnvironments[resoure.Account] = selectedEnvironment
+			selectedEnvironments[resource.Account] = selectedEnvironment
 		}
 
 		mdProcessor.UpsertResource(resource, envName, content)
