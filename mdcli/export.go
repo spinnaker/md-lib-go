@@ -16,14 +16,16 @@ type exportOptions struct {
 	onlyAccount            string
 	customResourceScanner  func(*mdlib.ApplicationResources) []*mdlib.ExportableResource
 	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)
+	constraintsProvider    func(envName string) []interface{}
+	notificationsProvider  func(envName string) []interface{}
 }
 
-// ExportOpt is an interface to provide custom overrides for the Export command.
-type ExportOpt func(o *exportOptions)
+// ExportOption is an interface to provide custom overrides for the Export command.
+type ExportOption func(o *exportOptions)
 
 // ExportAll is an override to Export, when true Export will not prompt and will
 // export all resources found.
-func ExportAll(b bool) ExportOpt {
+func ExportAll(b bool) ExportOption {
 	return func(o *exportOptions) {
 		o.all = b
 	}
@@ -32,7 +34,7 @@ func ExportAll(b bool) ExportOpt {
 // AssumeEnvName is an override to Export, if a non-empty string Export will not
 // prompt for the environment name when exporting a new resource not already
 // found in the delivery config.
-func AssumeEnvName(envName string) ExportOpt {
+func AssumeEnvName(envName string) ExportOption {
 	return func(o *exportOptions) {
 		o.envName = envName
 	}
@@ -40,7 +42,7 @@ func AssumeEnvName(envName string) ExportOpt {
 
 // OnlyAccount is an override to Export, if a non-empty string Export will only
 // attempt to export resources that are found in the provided account.
-func OnlyAccount(acct string) ExportOpt {
+func OnlyAccount(acct string) ExportOption {
 	return func(o *exportOptions) {
 		o.onlyAccount = acct
 	}
@@ -50,7 +52,7 @@ func OnlyAccount(acct string) ExportOpt {
 // if you Spinnaker deployment can manage custom resource types. For example, maybe Spinnaker can
 // manage a "bake" resource to automatically generate an AWS AMI.
 // The default scanner is mdlib.ExportableApplicationResources
-func CustomResourceScanner(f func(*mdlib.ApplicationResources) []*mdlib.ExportableResource) ExportOpt {
+func CustomResourceScanner(f func(*mdlib.ApplicationResources) []*mdlib.ExportableResource) ExportOption {
 	return func(o *exportOptions) {
 		o.customResourceScanner = f
 	}
@@ -58,15 +60,31 @@ func CustomResourceScanner(f func(*mdlib.ApplicationResources) []*mdlib.Exportab
 
 // CustomResourceExporter is an override to Export that can be used to implement a custom resource exporter.
 // The default exporter is mdlib.ExportResource
-func CustomResourceExporter(f func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)) ExportOpt {
+func CustomResourceExporter(f func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)) ExportOption {
 	return func(o *exportOptions) {
 		o.customResourceExporter = f
 	}
 }
 
+// ConstraintsProvider is an override to Export that can be used to customizing how a default
+// environment constraint is generated for newly created environments.
+func ConstraintsProvider(cp func(envName string) []interface{}) ExportOption {
+	return func(o *exportOptions) {
+		o.constraintsProvider = cp
+	}
+}
+
+// NotificationsProvider is an override to Export that can be used to customizing how a default
+// environment notification is generated for newly created environments.
+func NotificationsProvider(np func(envName string) []interface{}) ExportOption {
+	return func(o *exportOptions) {
+		o.notificationsProvider = np
+	}
+}
+
 // Export is a command line interface to discover exportable Spinnaker resources and then
 // optional add those resources to a local delivery config file to be later managed by Spinnaker.
-func Export(opts *CommandOptions, appName string, serviceAccount string, overrides ...ExportOpt) error {
+func Export(opts *CommandOptions, appName string, serviceAccount string, overrides ...ExportOption) error {
 	exportOpts := &exportOptions{
 		customResourceScanner:  mdlib.ExportableApplicationResources,
 		customResourceExporter: mdlib.ExportResource,
@@ -111,6 +129,8 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		mdlib.WithFile(opts.ConfigFile),
 		mdlib.WithAppName(appName),
 		mdlib.WithServiceAccount(serviceAccount),
+		mdlib.WithConstraintsProvider(exportOpts.constraintsProvider),
+		mdlib.WithNotificationsProvider(exportOpts.notificationsProvider),
 	)
 
 	err = mdProcessor.Load()
