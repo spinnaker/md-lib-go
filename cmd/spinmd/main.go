@@ -76,7 +76,7 @@ func main() {
 			return
 		}
 
-		err = mdcli.ResumePause(opts, appName, true)
+		err = mdcli.Pause(opts, appName)
 	case "resume":
 		var appName string
 		resumeFlags := flag.NewFlagSet("resume", flag.ExitOnError)
@@ -90,7 +90,7 @@ func main() {
 			return
 		}
 
-		err = mdcli.ResumePause(opts, appName, false)
+		err = mdcli.Resume(opts, appName)
 	default:
 		log.Fatalf(`Unexpected command %q, expected "export", "publish", or "diff" command`, args[0])
 	}

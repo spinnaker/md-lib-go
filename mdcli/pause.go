@@ -8,9 +8,17 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-// ResumePause is a command line interface for resuming or pausing the management
-// of the provide application
-func ResumePause(opts *CommandOptions, appName string, pause bool) error {
+// Pause is a command line interface to pause the management of a Spinnaker application.
+func Pause(opts *CommandOptions, appName string) error {
+	return resumePause(opts, appName, true)
+}
+
+// Resume is a command line interface to resume the paused management of a Spinnaker application.
+func Resume(opts *CommandOptions, appName string) error {
+	return resumePause(opts, appName, false)
+}
+
+func resumePause(opts *CommandOptions, appName string, pause bool) error {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	_, err := os.Stat(configPath)
 	if err != nil {
