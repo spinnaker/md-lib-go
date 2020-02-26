@@ -62,7 +62,22 @@ func main() {
 	case "publish":
 		err = mdcli.Publish(opts)
 	case "diff":
-		exitCode, err = mdcli.Diff(opts)
+		var quiet, brief bool
+		diffFlags := flag.NewFlagSet("diff", flag.ExitOnError)
+		diffFlags.BoolVar(&quiet, "quiet", false, "suppress output, exit code will indicate differences")
+		diffFlags.BoolVar(&brief, "brief", false, "only print resources status, do not print differences")
+		diffFlags.Parse(args[1:])
+
+		if diffFlags.NArg() > 0 {
+			fmt.Printf("Usage: diff\n")
+			fmt.Printf("Flags:\n")
+			diffFlags.Usage()
+			return
+		}
+		exitCode, err = mdcli.Diff(opts, mdcli.DiffOptions{
+			Brief: brief,
+			Quiet: quiet,
+		})
 	case "pause":
 		var appName string
 		pauseFlags := flag.NewFlagSet("pause", flag.ExitOnError)

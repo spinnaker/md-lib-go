@@ -38,7 +38,7 @@ func TestDiff(t *testing.T) {
 	opts.ConfigDir = "../test-files/diff"
 	opts.ConfigFile = "spinnaker.yml"
 
-	exitCode, err := Diff(opts)
+	exitCode, err := Diff(opts, DiffOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, exitCode)
 
