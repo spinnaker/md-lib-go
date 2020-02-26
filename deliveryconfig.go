@@ -314,8 +314,13 @@ func (p *DeliveryConfigProcessor) AllEnvironments() []string {
 // WhichEnvironment will return the environment name for the given resource found in the delivery config.
 // It will return an empty string if the resource is not found in any environment.
 func (p *DeliveryConfigProcessor) WhichEnvironment(resource *ExportableResource) string {
-	// TODO
-	return "testing"
+	for eix := range p.deliveryConfig.Environments {
+		rix := p.findResourceIndex(resource, eix)
+		if rix >= 0 {
+			return p.deliveryConfig.Environments[eix].Name
+		}
+	}
+	return ""
 }
 
 // UpsertResource will update (if exists) or insert (if new) a resource into the delivery config.  The resource will
