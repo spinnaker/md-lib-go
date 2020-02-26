@@ -25,7 +25,7 @@ func main() {
 	args := globalFlags.Args()
 
 	if len(args) < 1 {
-		fmt.Printf("Usage: %s [flags] export|publish|diff\n", filepath.Base(os.Args[0]))
+		fmt.Printf("Usage: %s [flags] export|publish|diff|pause|resume|delete\n", filepath.Base(os.Args[0]))
 		fmt.Printf("Flags:\n")
 		globalFlags.PrintDefaults()
 		return
@@ -46,7 +46,9 @@ func main() {
 		exportFlags.StringVar(&envName, "env", "", "assign exported resources to given environment, skip prompt")
 		exportFlags.Parse(args[1:])
 
-		if exportFlags.NArg() > 0 {
+		if exportFlags.NArg() > 0 || appName == "" || serviceAccount == "" {
+			fmt.Printf("Usage: export -app <name> -service-account <account>\n")
+			fmt.Printf("Flags:\n")
 			exportFlags.Usage()
 			return
 		}
@@ -61,6 +63,34 @@ func main() {
 		err = mdcli.Publish(opts)
 	case "diff":
 		exitCode, err = mdcli.Diff(opts)
+	case "pause":
+		var appName string
+		pauseFlags := flag.NewFlagSet("pause", flag.ExitOnError)
+		pauseFlags.StringVar(&appName, "app", "", "spinnaker application name")
+		pauseFlags.Parse(args[1:])
+
+		if pauseFlags.NArg() > 0 || appName == "" {
+			fmt.Printf("Usage: pause -app <name>\n")
+			fmt.Printf("Flags:\n")
+			pauseFlags.Usage()
+			return
+		}
+
+		err = mdcli.ResumePause(opts, appName, true)
+	case "resume":
+		var appName string
+		resumeFlags := flag.NewFlagSet("resume", flag.ExitOnError)
+		resumeFlags.StringVar(&appName, "app", "", "spinnaker application name")
+		resumeFlags.Parse(args[1:])
+
+		if resumeFlags.NArg() > 0 || appName == "" {
+			fmt.Printf("Usage: resume -app <name>\n")
+			fmt.Printf("Flags:\n")
+			resumeFlags.Usage()
+			return
+		}
+
+		err = mdcli.ResumePause(opts, appName, false)
 	default:
 		log.Fatalf(`Unexpected command %q, expected "export", "publish", or "diff" command`, args[0])
 	}

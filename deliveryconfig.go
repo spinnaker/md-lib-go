@@ -477,3 +477,16 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 
 	return diffs, nil
 }
+
+// Delete will stop the delivery config from being managed, and will cause Spinnaker
+// to remove all historical state about managing this configuration.
+func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
+	if p.rawDeliveryConfig == nil {
+		err := p.Load()
+		if err != nil {
+			return stacktrace.Propagate(err, "Failed to load delivery config")
+		}
+	}
+	_, err := commonRequest(cli, "DELETE", fmt.Sprintf("/managed/delivery-configs/%s", p.deliveryConfig.Name), nil)
+	return err
+}
