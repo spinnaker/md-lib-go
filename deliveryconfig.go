@@ -120,14 +120,16 @@ type DeliveryResourceContainer struct {
 
 // DeliveryConfigProcessor is a structure to manage operations on a delivery config.
 type DeliveryConfigProcessor struct {
-	appName           string
-	serviceAccount    string
-	fileName          string
-	dirName           string
-	rawDeliveryConfig map[string]interface{}
-	deliveryConfig    DeliveryConfig
-	yamlMarshal       func(interface{}) ([]byte, error)
-	yamlUnmarshal     func([]byte, interface{}) error
+	appName              string
+	serviceAccount       string
+	fileName             string
+	dirName              string
+	rawDeliveryConfig    map[string]interface{}
+	deliveryConfig       DeliveryConfig
+	yamlMarshal          func(interface{}) ([]byte, error)
+	yamlUnmarshal        func([]byte, interface{}) error
+	constraintProvider   func(envName string) []interface{}
+	notificationProvider func(envName string) []interface{}
 }
 
 // ProcessorOption is the interface to provide variadic options to NewDeliveryConfigProcessor
@@ -140,6 +142,12 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 		dirName:       DefaultDeliveryConfigDirName,
 		yamlMarshal:   defaultYAMLMarshal,
 		yamlUnmarshal: yaml.Unmarshal,
+		constraintProvider: func(_ string) []interface{} {
+			return []interface{}{DefaultEnvironmentConstraint}
+		},
+		notificationProvider: func(_ string) []interface{} {
+			return []interface{}{}
+		},
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -196,6 +204,22 @@ func defaultYAMLMarshal(opts interface{}) ([]byte, error) {
 	enc.SetIndent(2)
 	err := enc.Encode(opts)
 	return buf.Bytes(), err
+}
+
+// WithConstraintProvider is a ProcessorOption to allow customizing how a default
+// environment constraint is generated for newly created environments.
+func WithConstraintProvider(cp func(envName string) []interface{}) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.constraintProvider = cp
+	}
+}
+
+// WithNotificationProvider is a ProcessorOption to allow customizing how a default
+// environment notification is generated for newly created environments.
+func WithNotificationProvider(np func(envName string) []interface{}) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.notificationProvider = np
+	}
 }
 
 // Load will load the delivery config files from disk.
@@ -302,8 +326,8 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		// new environment
 		environments = append(environments, map[string]interface{}{
 			"name":          envName,
-			"constraints":   []interface{}{DefaultEnvironmentConstraint},
-			"notifications": []interface{}{},
+			"constraints":   p.constraintProvider(envName),
+			"notifications": p.notificationProvider(envName),
 			"resources":     []interface{}{data},
 		})
 		p.rawDeliveryConfig["environments"] = environments
@@ -314,10 +338,10 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		})
 	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
 		if _, ok := env["constraints"].([]interface{}); !ok {
-			env["constraints"] = []interface{}{DefaultEnvironmentConstraint}
+			env["constraints"] = p.constraintProvider(envName)
 		}
 		if _, ok := env["notifications"].([]interface{}); !ok {
-			env["notifications"] = []interface{}{}
+			env["notifications"] = p.notificationProvider(envName)
 		}
 		if resources, ok := env["resources"].([]interface{}); ok {
 			resourceIx := p.findResourceIndex(resource, envIx)
