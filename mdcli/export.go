@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/AlecAivazis/survey/v2"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // exportOptions are options specifically for the Export Command.
@@ -178,7 +178,6 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				PageSize: pageSize,
 			},
 			&selected,
-			nil,
 			survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 		)
 
@@ -211,7 +210,6 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 					Default: selectedEnvironment,
 				},
 				&selectedEnvironment,
-				nil,
 				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 			)
 			if err != nil {
