@@ -207,7 +207,12 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				&survey.Select{
 					Message: fmt.Sprintf("Select environment for %s", resource),
 					Options: environments,
-					Default: selectedEnvironment,
+					Default: func(d string) interface{} {
+						if d != "" {
+							return d
+						}
+						return nil
+					}(selectedEnvironment),
 				},
 				&selectedEnvironment,
 				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
