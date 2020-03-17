@@ -43,6 +43,15 @@ func (r ExportableResource) String() string {
 	return fmt.Sprintf("%s %s [%s/%s]", r.ResourceType, r.Name, r.CloudProvider, r.Account)
 }
 
+func (r ExportableResource) HasKind(kind string) bool {
+	kindProvider := r.CloudProvider
+	if kindProvider == "aws" {
+		kindProvider = "ec2"
+	}
+	// does it match ec2/cluster@v1
+	return strings.HasPrefix(kind, fmt.Sprintf("%s/%s@", kindProvider, r.ResourceType))
+}
+
 // ResourceSorter is a wrapper to help sort ExportableResources
 type ResourceSorter []*ExportableResource
 

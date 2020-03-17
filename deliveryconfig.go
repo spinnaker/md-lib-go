@@ -61,9 +61,8 @@ func (a *DeliveryArtifact) RefName() string {
 
 // DeliveryResource contains the necessary configuration for a managed delivery resource
 type DeliveryResource struct {
-	ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
-	Kind       string
-	Spec       DeliveryResourceSpec
+	Kind string
+	Spec DeliveryResourceSpec
 }
 
 // Name returns the name for the type of delivery resource
@@ -86,10 +85,17 @@ func (r DeliveryResource) Account() string {
 // CloudProvider retuurns the cloud provider for a resource.  Currently it
 // only return titus or aws
 func (r DeliveryResource) CloudProvider() string {
-	if strings.Contains(r.ApiVersion, "titus") {
-		return "titus"
+	// Kind is like ec2/cluster@v1 or titus/cluster@v1
+	// but CloudProvider needs to be "aws" for "ec2"
+	// so make that mapping here
+	parts := strings.SplitN(r.Kind, "/", 2)
+	if len(parts) == 0 {
+		return "unknown-cloud-provider"
 	}
-	return "aws"
+	if parts[0] == "ec2" {
+		return "aws"
+	}
+	return parts[0]
 }
 
 // DeliveryResourceSpec is the spec for the delivery resource
@@ -389,7 +395,7 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	for ix, resource := range p.deliveryConfig.Environments[envIx].Resources {
 		// log.Printf("Resource Kind: %s CloudProvider: %s Account: %s Name: %s", resource.Kind, resource.CloudProvider(), resource.Account(), resource.Name())
 		// log.Printf("Search   Kind: %s CloudProvider: %s Account: %s Name: %s", search.ResourceType, search.CloudProvider, search.Account, search.Name)
-		if resource.Kind != search.ResourceType ||
+		if !search.HasKind(resource.Kind) ||
 			resource.CloudProvider() != search.CloudProvider ||
 			resource.Account() != search.Account ||
 			resource.Name() != search.Name {
