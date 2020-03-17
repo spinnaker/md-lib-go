@@ -126,8 +126,25 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 		uniqAccounts[lb.Account] = struct{}{}
 	}
 
-	g = errgroup.Group{}
+	// accounts might not primary or secondary.  Secondary accounts are usually logical partitions within
+	// an existing "primary" account.  But security groups are only on the primary accounts, so
+	// if we have any secondary accounts, we need to remap it back to the primary for the secGroup lookup.
+	uniqPrimaryAccounts := map[string]struct{}{}
 	for account := range uniqAccounts {
+		cred := Credential{}
+		err := GetCredential(cli, account, &cred)
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "failed to load credential data for account %q", account)
+		}
+		if cred.PrimaryAccount {
+			uniqPrimaryAccounts[account] = struct{}{}
+		} else {
+			uniqPrimaryAccounts[cred.AWSAccount] = struct{}{}
+		}
+	}
+
+	g = errgroup.Group{}
+	for account := range uniqPrimaryAccounts {
 		account := account
 		sgs := make(SecurityGroups)
 		// TODO do we need defer?
