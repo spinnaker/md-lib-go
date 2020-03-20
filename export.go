@@ -145,7 +145,7 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "failed to load credential data for account %q", account)
 		}
-		if cred.PrimaryAccount {
+		if cred.AWSAccount == "" {
 			uniqPrimaryAccounts[account] = struct{}{}
 		} else {
 			uniqPrimaryAccounts[cred.AWSAccount] = struct{}{}
