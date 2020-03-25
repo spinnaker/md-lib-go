@@ -67,7 +67,7 @@ type DeliveryResource struct {
 
 // Name returns the name for the type of delivery resource
 func (r DeliveryResource) Name() string {
-	if r.Kind == "image" {
+	if strings.HasPrefix(r.Kind, "bakery/image@") {
 		return r.Spec.ArtifactName
 	}
 	return r.Spec.Moniker.String()
@@ -75,7 +75,7 @@ func (r DeliveryResource) Name() string {
 
 // Account return the account for the delivery resource
 func (r DeliveryResource) Account() string {
-	if r.Kind == "image" {
+	if strings.HasPrefix(r.Kind, "bakery/image@") {
 		// image does not have a location, fake it out now
 		return "bakery"
 	}
@@ -336,6 +336,42 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	if err != nil {
 		return stacktrace.Propagate(err, "failed to parse content")
 	}
+	// fixup imageProvider.reference [ec2/cluster] or container.reference [titus/cluster] to a match artifacts
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		if spec, ok := dataMap["spec"].(map[string]interface{}); ok {
+			if imageProvider, ok := spec["imageProvider"].(map[string]interface{}); ok {
+				// this is an ec2/cluster, check for reference
+				if _, ok := imageProvider["reference"]; !ok {
+					// need to add a reference
+					for _, current := range p.deliveryConfig.Artifacts {
+						if current.Name == imageProvider["name"].(string) && current.Type == DebianArtifactType {
+							spec["imageProvider"] = map[string]interface{}{
+								"reference": current.RefName(),
+							}
+							break
+						}
+					}
+				}
+			} else if container, ok := spec["container"].(map[string]interface{}); ok {
+				// this is an titus/cluster, check for reference
+				if _, ok := container["reference"]; !ok {
+					// need to add a reference
+					name := fmt.Sprintf("%s/%s", container["organization"], container["image"])
+					for _, current := range p.deliveryConfig.Artifacts {
+						if current.Name == name && current.Type == DockerArtifactType {
+							spec["container"] = map[string]interface{}{
+								"reference": current.RefName(),
+							}
+							break
+						}
+					}
+				}
+			}
+			dataMap["spec"] = spec
+		}
+		data = dataMap
+	}
+
 	envIx := p.findEnvIndex(envName)
 	if environments, ok := p.rawDeliveryConfig["environments"].([]interface{}); !ok || envIx < 0 {
 		// new environment
@@ -393,8 +429,6 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	}
 
 	for ix, resource := range p.deliveryConfig.Environments[envIx].Resources {
-		// log.Printf("Resource Kind: %s CloudProvider: %s Account: %s Name: %s", resource.Kind, resource.CloudProvider(), resource.Account(), resource.Name())
-		// log.Printf("Search   Kind: %s CloudProvider: %s Account: %s Name: %s", search.ResourceType, search.CloudProvider, search.Account, search.Name)
 		if !search.HasKind(resource.Kind) ||
 			resource.CloudProvider() != search.CloudProvider ||
 			resource.Account() != search.Account ||

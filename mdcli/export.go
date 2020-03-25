@@ -186,6 +186,11 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		}
 	}
 
+	sort.Sort(mdlib.ArtifactSorter(artifacts))
+	for _, artifact := range artifacts {
+		mdProcessor.InsertArtifact(artifact)
+	}
+
 	selectedEnvironments := map[string]string{}
 	for _, selection := range selected {
 		resource := exportable[optionsIndexByName[selection]]
@@ -225,11 +230,6 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		}
 
 		mdProcessor.UpsertResource(resource, envName, content)
-	}
-
-	sort.Sort(mdlib.ArtifactSorter(artifacts))
-	for _, artifact := range artifacts {
-		mdProcessor.InsertArtifact(artifact)
 	}
 
 	err = mdProcessor.Save()
