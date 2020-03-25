@@ -27,6 +27,7 @@ func resumePause(opts *CommandOptions, appName string, pause bool) error {
 
 	cli := mdlib.NewClient(
 		mdlib.WithBaseURL(opts.BaseURL),
+		mdlib.WithHTTPClient(opts.HTTPClient),
 	)
 
 	if pause {

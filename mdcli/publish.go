@@ -18,6 +18,7 @@ func Publish(opts *CommandOptions) error {
 
 	cli := mdlib.NewClient(
 		mdlib.WithBaseURL(opts.BaseURL),
+		mdlib.WithHTTPClient(opts.HTTPClient),
 	)
 
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
