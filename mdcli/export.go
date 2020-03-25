@@ -16,8 +16,8 @@ type exportOptions struct {
 	onlyAccount            string
 	customResourceScanner  func(*mdlib.ApplicationResources) []*mdlib.ExportableResource
 	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)
-	constraintsProvider    func(envName string) []interface{}
-	notificationsProvider  func(envName string) []interface{}
+	constraintsProvider    func(envName string, current mdlib.DeliveryConfig) []interface{}
+	notificationsProvider  func(envName string, current mdlib.DeliveryConfig) []interface{}
 }
 
 // ExportOption is an interface to provide custom overrides for the Export command.
@@ -68,7 +68,7 @@ func CustomResourceExporter(f func(*mdlib.Client, *mdlib.ExportableResource, str
 
 // ConstraintsProvider is an override to Export that can be used to customizing how a default
 // environment constraint is generated for newly created environments.
-func ConstraintsProvider(cp func(envName string) []interface{}) ExportOption {
+func ConstraintsProvider(cp func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
 	return func(o *exportOptions) {
 		o.constraintsProvider = cp
 	}
@@ -76,7 +76,7 @@ func ConstraintsProvider(cp func(envName string) []interface{}) ExportOption {
 
 // NotificationsProvider is an override to Export that can be used to customizing how a default
 // environment notification is generated for newly created environments.
-func NotificationsProvider(np func(envName string) []interface{}) ExportOption {
+func NotificationsProvider(np func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
 	return func(o *exportOptions) {
 		o.notificationsProvider = np
 	}
