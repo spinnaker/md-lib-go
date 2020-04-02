@@ -53,7 +53,7 @@ func WithHTTPClient(client func(*http.Request) (*http.Response, error)) ClientOp
 }
 
 func commonParsedGet(cli *Client, u string, result interface{}) error {
-	content, err := commonRequest(cli, "GET", u, nil)
+	content, err := commonRequest(cli, "GET", u, requestBody{})
 	if err != nil {
 		return stacktrace.Propagate(err, "failed to get content for %s", u)
 	}
@@ -66,18 +66,40 @@ func commonParsedGet(cli *Client, u string, result interface{}) error {
 	return nil
 }
 
-func commonRequest(cli *Client, method string, u string, body io.Reader) ([]byte, error) {
+type ErrorUnexpectedResponse struct {
+	StatusCode int
+	URL        string
+	Content    []byte
+}
+
+func (e ErrorUnexpectedResponse) Error() string {
+	return fmt.Sprintf("Unexpected response from %s, expected 200 or 201 but got %d", e.URL, e.StatusCode)
+}
+
+func (e ErrorUnexpectedResponse) Parse(data interface{}) error {
+	return json.Unmarshal(e.Content, data)
+}
+
+type requestBody struct {
+	Content     io.Reader
+	ContentType string
+}
+
+func commonRequest(cli *Client, method string, u string, body requestBody) ([]byte, error) {
 	if cli.spinnakerAPIBaseURL == "" {
 		return nil, stacktrace.NewError("SPINNAKER_API_BASE_URL environment variable not set")
 	}
 	u = fmt.Sprintf("%s%s", cli.spinnakerAPIBaseURL, u)
 
-	req, err := http.NewRequest(method, u, body)
+	req, err := http.NewRequest(method, u, body.Content)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to create new request for %s", u)
 	}
+
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
+	if body.ContentType != "" {
+		req.Header.Set("Content-Type", body.ContentType)
+	}
 
 	resp, err := cli.httpClient(req)
 	if err != nil {
@@ -85,13 +107,19 @@ func commonRequest(cli *Client, method string, u string, body io.Reader) ([]byte
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return nil, stacktrace.NewError("Unexpected response from %s, expected 200 or 201 but got %d", u, resp.StatusCode)
-	}
-
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "failed to read response body from %s", u)
 	}
+
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		err := ErrorUnexpectedResponse{
+			StatusCode: resp.StatusCode,
+			URL:        u,
+			Content:    content,
+		}
+		return nil, stacktrace.Propagate(err, "")
+	}
+
 	return content, nil
 }

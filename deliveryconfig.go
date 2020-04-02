@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -132,6 +133,7 @@ type DeliveryConfigProcessor struct {
 	dirName               string
 	rawDeliveryConfig     map[string]interface{}
 	deliveryConfig        DeliveryConfig
+	content               []byte
 	yamlMarshal           func(interface{}) ([]byte, error)
 	yamlUnmarshal         func([]byte, interface{}) error
 	constraintsProvider   func(envName string, current DeliveryConfig) []interface{}
@@ -244,17 +246,18 @@ func (p *DeliveryConfigProcessor) Load() error {
 	} else if err != nil {
 		return stacktrace.Propagate(err, "failed to stat %s", deliveryFile)
 	}
-	content, err := ioutil.ReadFile(deliveryFile)
+	var err error
+	p.content, err = ioutil.ReadFile(deliveryFile)
 	if err != nil {
 		return stacktrace.Propagate(err, "failed to read %s", deliveryFile)
 	}
 
-	err = yaml.Unmarshal(content, &p.rawDeliveryConfig)
+	err = yaml.Unmarshal(p.content, &p.rawDeliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(err, "Failed to parse contents of %s as yaml", deliveryFile)
 	}
 
-	err = yaml.Unmarshal(content, &p.deliveryConfig)
+	err = yaml.Unmarshal(p.content, &p.deliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(err, "Failed to parse contents of %s as yaml", deliveryFile)
 	}
@@ -278,6 +281,7 @@ func (p *DeliveryConfigProcessor) Save() error {
 	if err != nil {
 		return stacktrace.Propagate(err, "")
 	}
+	p.content = output
 
 	err = os.MkdirAll(p.dirName, 0755)
 	if err != nil {
@@ -478,7 +482,10 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 		return stacktrace.Propagate(err, "Failed to serialized delivery config")
 	}
 
-	_, err = commonRequest(cli, "POST", "/managed/delivery-configs", bytes.NewReader(encoded))
+	_, err = commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
+		Content:     bytes.NewReader(encoded),
+		ContentType: "application/json",
+	})
 
 	if err != nil {
 		return stacktrace.Propagate(err, "Failed to post delivery config to spinnaker")
@@ -506,19 +513,17 @@ type ManagedResourceDiff struct {
 // the Spinnaker application and report any changes.  This can also be used to validate
 // a delivery config (errors will be returned when an invalid delivery config is submitted).
 func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, error) {
-	if p.rawDeliveryConfig == nil {
+	if len(p.content) == 0 {
 		err := p.Load()
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "Failed to load delivery config")
 		}
 	}
 
-	encoded, err := json.Marshal(&p.rawDeliveryConfig)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "Failed to serialized delivery config")
-	}
-
-	content, err := commonRequest(cli, "POST", "/managed/delivery-configs/diff", bytes.NewReader(encoded))
+	content, err := commonRequest(cli, "POST", "/managed/delivery-configs/diff", requestBody{
+		Content:     bytes.NewReader(p.content),
+		ContentType: "application/x-yaml",
+	})
 
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "Failed to diff delivery config with spinnaker")
@@ -560,6 +565,50 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 			return stacktrace.Propagate(err, "Failed to load delivery config")
 		}
 	}
-	_, err := commonRequest(cli, "DELETE", fmt.Sprintf("/managed/delivery-configs/%s", p.deliveryConfig.Name), nil)
+	_, err := commonRequest(cli, "DELETE", fmt.Sprintf("/managed/delivery-configs/%s", p.deliveryConfig.Name), requestBody{})
 	return err
+}
+
+// ValidationErrorDetail is the structure of the document from /managed/delivery-configs/validate API
+type ValidationErrorDetail struct {
+	Error    string `json:"error"`
+	Location struct {
+		Column int `json:"column"`
+		Line   int `json:"line"`
+	} `json:"location"`
+	Message        string `json:"message"`
+	PathExpression string `json:"pathExpression"`
+}
+
+// Validate posts the delivery config to the validation api and returns nil on success,
+// or a ValidationErrorDetail
+func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail, error) {
+	if len(p.content) == 0 {
+		err := p.Load()
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "Failed to load delivery config")
+		}
+	}
+
+	_, err := commonRequest(cli, "POST", "/managed/delivery-configs/validate", requestBody{
+		Content:     bytes.NewReader(p.content),
+		ContentType: "application/x-yaml",
+	})
+
+	if err != nil {
+		if errResp, ok := stacktrace.RootCause(err).(ErrorUnexpectedResponse); ok {
+			if errResp.StatusCode == http.StatusBadRequest {
+				validation := struct {
+					Details ValidationErrorDetail `json:"details"`
+				}{}
+				return &validation.Details, stacktrace.Propagate(
+					errResp.Parse(&validation),
+					"Failed to parse response from /managed/delivery-configs/validate",
+				)
+			}
+		}
+		return nil, stacktrace.Propagate(err, "Failed to validate delivery config to spinnaker")
+	}
+
+	return nil, nil
 }

@@ -1,38 +1,70 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/spinnaker/md-lib-go/mdcli"
+	"github.com/spinnaker/spin/cmd/gateclient"
+	"github.com/spinnaker/spin/config"
+	"gopkg.in/yaml.v2"
+	"k8s.io/client-go/util/homedir"
 )
 
 func main() {
 	opts := mdcli.NewCommandOptions()
 
+	cfg := config.Config{}
+
+	configFile := filepath.Join(homedir.HomeDir(), ".spin", "config")
+	if _, err := os.Stat(configFile); err == nil {
+		yamlFile, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			log.Fatalf("Unable to read %s: %s", configFile, err)
+		}
+		err = yaml.UnmarshalStrict([]byte(os.ExpandEnv(string(yamlFile))), &cfg)
+		if err != nil {
+			log.Fatalf("Failed to parse %s as YAML: %s", configFile, err)
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		log.Fatalf("Unable to stat %s: %s", configFile, err)
+	}
+
+	httpClient, ctx, err := gateclient.NewHTTPClient(context.Background(), &cfg)
+	if err != nil {
+		log.Fatalf("Failed to create client: %s", err)
+	}
+
+	opts.HTTPClient = func(req *http.Request) (*http.Response, error) {
+		gateclient.AddAuthHeaders(ctx, req)
+		return httpClient.Do(req)
+	}
+
 	globalFlags := flag.NewFlagSet("", flag.ContinueOnError)
 
 	globalFlags.StringVar(&opts.ConfigDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
 	globalFlags.StringVar(&opts.ConfigFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
-	globalFlags.StringVar(&opts.BaseURL, "baseurl", "", "base URL to reach spinnaker api")
+	globalFlags.StringVar(&opts.BaseURL, "baseurl", cfg.Gate.Endpoint, "base URL to reach spinnaker api")
 
 	globalFlags.Parse(os.Args[1:])
 	args := globalFlags.Args()
 
 	if len(args) < 1 {
-		fmt.Printf("Usage: %s [flags] export|publish|diff|pause|resume|delete\n", filepath.Base(os.Args[0]))
+		fmt.Printf("Usage: %s [flags] export|publish|diff|pause|resume|delete|validate\n", filepath.Base(os.Args[0]))
 		fmt.Printf("Flags:\n")
 		globalFlags.PrintDefaults()
 		return
 	}
 
 	exitCode := 0
-	var err error
 	switch args[0] {
 	case "export":
 		var appName, serviceAccount string
@@ -61,6 +93,8 @@ func main() {
 		)
 	case "publish":
 		err = mdcli.Publish(opts)
+	case "validate":
+		exitCode, err = mdcli.Validate(opts)
 	case "diff":
 		var quiet, brief bool
 		diffFlags := flag.NewFlagSet("diff", flag.ExitOnError)

@@ -251,6 +251,6 @@ func ExportResource(cli *Client, resource *ExportableResource, serviceAccount st
 			resource.Name,
 			serviceAccount,
 		),
-		nil,
+		requestBody{},
 	)
 }
