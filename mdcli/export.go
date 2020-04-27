@@ -2,11 +2,15 @@ package mdcli
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"sort"
 
 	"github.com/AlecAivazis/survey/v2"
 	mdlib "github.com/spinnaker/md-lib-go"
+	"github.com/xlab/treeprint"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/yaml.v2"
 )
 
 // exportOptions are options specifically for the Export Command.
@@ -187,11 +191,15 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	}
 
 	sort.Sort(mdlib.ArtifactSorter(artifacts))
+	addedArtifacts := map[mdlib.DeliveryArtifact]struct{}{}
 	for _, artifact := range artifacts {
-		mdProcessor.InsertArtifact(artifact)
+		if mdProcessor.InsertArtifact(artifact) {
+			addedArtifacts[*artifact] = struct{}{}
+		}
 	}
 
 	selectedEnvironments := map[string]string{}
+	modifiedResources := map[*mdlib.ExportableResource]bool{}
 	for _, selection := range selected {
 		resource := exportable[optionsIndexByName[selection]]
 		opts.Logger.Printf("Exporting %s", resource)
@@ -229,12 +237,64 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 			selectedEnvironments[resource.Account] = selectedEnvironment
 		}
 
-		mdProcessor.UpsertResource(resource, envName, content)
+		added, err := mdProcessor.UpsertResource(resource, envName, content)
+		if err != nil {
+			return err
+		}
+		modifiedResources[resource] = added
 	}
 
 	err = mdProcessor.Save()
 	if err != nil {
 		return err
 	}
+
+	// reload delivery config so we can print out the tree structure
+	delivery := mdlib.DeliveryConfig{}
+	contents, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
+	if err != nil {
+		return err
+	}
+	err = yaml.Unmarshal(contents, &delivery)
+	if err != nil {
+		return err
+	}
+
+	// tree view of resources
+	tree := treeprint.New()
+	tree.SetValue(appName)
+
+	artNode := tree.AddBranch("artifacts")
+	for _, art := range delivery.Artifacts {
+		if _, ok := addedArtifacts[art]; ok {
+			artNode.AddMetaNode("added", art.RefName())
+		} else {
+			artNode.AddNode(art.RefName())
+		}
+	}
+
+	envNode := tree.AddBranch("environments")
+	for _, env := range delivery.Environments {
+		envBranch := envNode.AddBranch(env.Name)
+		for _, resource := range env.Resources {
+			found := false
+			for expRsrc, added := range modifiedResources {
+				if resource.Match(expRsrc) {
+					meta := "updated"
+					if added {
+						meta = "added"
+					}
+					envBranch.AddMetaNode(meta, resource.String())
+					found = true
+					break
+				}
+			}
+			if !found {
+				envBranch.AddNode(resource.String())
+			}
+		}
+	}
+	fmt.Fprintf(opts.Stdout, "Export Summary:\n%s", tree.String())
+
 	return nil
 }

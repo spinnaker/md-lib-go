@@ -16,6 +16,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spinnaker/spin v0.4.0
 	github.com/stretchr/testify v1.5.0
+	github.com/xlab/treeprint v1.0.0
 	golang.org/x/crypto v0.0.0-20200214034016-1d94cc7ab1c6
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect

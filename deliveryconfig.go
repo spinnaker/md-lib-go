@@ -99,6 +99,20 @@ func (r DeliveryResource) CloudProvider() string {
 	return parts[0]
 }
 
+func (r *DeliveryResource) Match(e *ExportableResource) bool {
+	if e.HasKind(r.Kind) &&
+		r.CloudProvider() == e.CloudProvider &&
+		r.Account() == e.Account &&
+		r.Name() == e.Name {
+		return true
+	}
+	return false
+}
+
+func (r *DeliveryResource) String() string {
+	return fmt.Sprintf("%s %s [%s/%s]", r.Kind, r.Name(), r.CloudProvider(), r.Account())
+}
+
 // DeliveryResourceSpec is the spec for the delivery resource
 type DeliveryResourceSpec struct {
 	Moniker       Moniker
@@ -335,10 +349,10 @@ func (p *DeliveryConfigProcessor) WhichEnvironment(resource *ExportableResource)
 
 // UpsertResource will update (if exists) or insert (if new) a resource into the delivery config.  The resource will
 // be added to the environment that corresponds to envName if the resource is new.
-func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, envName string, content []byte) error {
+func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, envName string, content []byte) (added bool, err error) {
 	data, err := p.bytesToData(content)
 	if err != nil {
-		return stacktrace.Propagate(err, "failed to parse content")
+		return false, stacktrace.Propagate(err, "failed to parse content")
 	}
 	// fixup imageProvider.reference [ec2/cluster] or container.reference [titus/cluster] to a match artifacts
 	if dataMap, ok := data.(map[string]interface{}); ok {
@@ -391,6 +405,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			Name:      envName,
 			Resources: []DeliveryResource{{}},
 		})
+		added = true
 	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
 		if _, ok := env["constraints"].([]interface{}); !ok {
 			env["constraints"] = p.constraintsProvider(envName, p.deliveryConfig)
@@ -402,6 +417,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			resourceIx := p.findResourceIndex(resource, envIx)
 			if resourceIx < 0 {
 				resources = append(resources, data)
+				added = true
 			} else {
 				resources[resourceIx] = data
 			}
@@ -410,7 +426,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			p.rawDeliveryConfig["environments"] = environments
 		}
 	}
-	return nil
+	return added, nil
 }
 
 func (p *DeliveryConfigProcessor) bytesToData(content []byte) (data interface{}, err error) {
@@ -433,13 +449,9 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	}
 
 	for ix, resource := range p.deliveryConfig.Environments[envIx].Resources {
-		if !search.HasKind(resource.Kind) ||
-			resource.CloudProvider() != search.CloudProvider ||
-			resource.Account() != search.Account ||
-			resource.Name() != search.Name {
-			continue
+		if resource.Match(search) {
+			return ix
 		}
-		return ix
 	}
 	return -1
 }
@@ -456,15 +468,16 @@ func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) boo
 }
 
 // InsertArtifact will add an artifact to the delivery config if it is not already present.
-func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) {
+func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (added bool) {
 	for _, current := range p.deliveryConfig.Artifacts {
 		if current.Name == artifact.Name && current.Type == artifact.Type {
 			// found an existing artifact, so do not insert this one
-			return
+			return false
 		}
 	}
 	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, *artifact)
 	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
+	return true
 }
 
 // Publish will post the delivery config to the Spinnaker API so that Spinnaker

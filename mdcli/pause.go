@@ -39,6 +39,6 @@ func resumePause(opts *CommandOptions, appName string, pause bool) error {
 		return err
 	}
 
-	fmt.Fprintf(opts.Stdout, "OK")
+	fmt.Fprintf(opts.Stdout, "OK\n")
 	return nil
 }
