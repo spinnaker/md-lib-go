@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/mgutz/ansi"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/xlab/treeprint"
 	"golang.org/x/crypto/ssh/terminal"
@@ -260,40 +261,69 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		return err
 	}
 
-	// tree view of resources
+	// start building a tree view of resources
 	tree := treeprint.New()
-	tree.SetValue(appName)
+	tree.SetValue(fmt.Sprintf("🦄 %s%s%s", ansi.ColorCode("default+hb"), appName, ansi.Reset))
 
-	artNode := tree.AddBranch("artifacts")
+	// reset the tree outline to be magenta
+	treeprint.EdgeTypeLink = treeprint.EdgeType(fmt.Sprintf("%s%s%s", ansi.Magenta, "│", ansi.Reset))
+	treeprint.EdgeTypeMid = treeprint.EdgeType(fmt.Sprintf("%s%s%s", ansi.Magenta, "├──", ansi.Reset))
+	treeprint.EdgeTypeEnd = treeprint.EdgeType(fmt.Sprintf("%s%s%s", ansi.Magenta, "└──", ansi.Reset))
+
+	artNode := tree.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("blue+b"), "artifacts", ansi.Reset))
 	for _, art := range delivery.Artifacts {
 		if _, ok := addedArtifacts[art]; ok {
-			artNode.AddMetaNode("added", art.RefName())
+			artNode.AddMetaNode(fmt.Sprintf("%s%s%s", ansi.Green, "added", ansi.Reset), art.RefName())
 		} else {
 			artNode.AddNode(art.RefName())
 		}
 	}
 
-	envNode := tree.AddBranch("environments")
+	envNode := tree.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("blue+b"), "environments", ansi.Reset))
 	for _, env := range delivery.Environments {
-		envBranch := envNode.AddBranch(env.Name)
+		envBranch := envNode.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("default+hb"), env.Name, ansi.Reset))
+		// collect all the types so we can print the resources in order by type
+		uniqTypes := map[string]struct{}{}
 		for _, resource := range env.Resources {
-			found := false
-			for expRsrc, added := range modifiedResources {
-				if resource.Match(expRsrc) {
-					meta := "updated"
-					if added {
-						meta = "added"
-					}
-					envBranch.AddMetaNode(meta, resource.String())
-					found = true
-					break
+			uniqTypes[resource.ResourceType()] = struct{}{}
+		}
+		types := []string{}
+		for t := range uniqTypes {
+			types = append(types, t)
+		}
+		sort.Strings(types)
+		for _, resourceType := range types {
+			// add branch for this resource type
+			rsrcBranch := envBranch.AddBranch(fmt.Sprintf("%s%ss%s", ansi.ColorCode("blue+b"), resourceType, ansi.Reset))
+			for _, resource := range env.Resources {
+				if resource.ResourceType() != resourceType {
+					continue
 				}
-			}
-			if !found {
-				envBranch.AddNode(resource.String())
+				// it will not be found it not modified (already existed in delivery config)
+				found := false
+				for expRsrc, added := range modifiedResources {
+					if resource.Match(expRsrc) {
+						meta := "updated"
+						if added {
+							meta = "added"
+						}
+						rsrcBranch.AddMetaNode(
+							fmt.Sprintf("%s%s%s", ansi.Green, meta, ansi.Reset),
+							fmt.Sprintf("%s [%s]", resource.Name(), resource.Account()),
+						)
+						found = true
+						break
+					}
+				}
+				if !found {
+					rsrcBranch.AddNode(
+						fmt.Sprintf("%s [%s]", resource.Name(), resource.Account()),
+					)
+				}
 			}
 		}
 	}
+
 	fmt.Fprintf(opts.Stdout, "Export Summary:\n%s", tree.String())
 
 	return nil

@@ -109,8 +109,10 @@ func (r *DeliveryResource) Match(e *ExportableResource) bool {
 	return false
 }
 
-func (r *DeliveryResource) String() string {
-	return fmt.Sprintf("%s %s [%s/%s]", r.Kind, r.Name(), r.CloudProvider(), r.Account())
+func (r *DeliveryResource) ResourceType() string {
+	left := strings.Index(r.Kind, "/")
+	right := strings.LastIndex(r.Kind, "@")
+	return r.Kind[left+1 : right]
 }
 
 // DeliveryResourceSpec is the spec for the delivery resource
