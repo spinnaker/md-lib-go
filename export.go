@@ -12,7 +12,7 @@ const (
 	// ClusterResourceType is the keyword used to classify the resource type for clusters.
 	ClusterResourceType = "cluster"
 	// LoadBalancerResourceType is the keyword used to classify the resource type for classic elastic load balancers.
-	LoadBalancerResourceType = "load-balancer"
+	LoadBalancerResourceType = "classic-load-balancer"
 	// ApplicationLoadBalancerResourceType is the keyword used to classify the resource type for an application load balancer.
 	ApplicationLoadBalancerResourceType = "application-load-balancer"
 	// SecurityGroupResourceType is the keyword used to classify the resource type for security groups.
