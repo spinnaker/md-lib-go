@@ -285,12 +285,18 @@ func (p *DeliveryConfigProcessor) Load() error {
 
 	err = yaml.Unmarshal(p.content, &p.rawDeliveryConfig)
 	if err != nil {
-		return stacktrace.Propagate(err, "Failed to parse contents of %s as yaml", deliveryFile)
+		return stacktrace.Propagate(
+			ErrorInvalidContent{Content: p.content, ParseError: err},
+			"Failed to parse contents of %s as yaml", deliveryFile,
+		)
 	}
 
 	err = yaml.Unmarshal(p.content, &p.deliveryConfig)
 	if err != nil {
-		return stacktrace.Propagate(err, "Failed to parse contents of %s as yaml", deliveryFile)
+		return stacktrace.Propagate(
+			ErrorInvalidContent{Content: p.content, ParseError: err},
+			"Failed to parse contents of %s as yaml", deliveryFile,
+		)
 	}
 	return nil
 }
@@ -447,7 +453,11 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 }
 
 func (p *DeliveryConfigProcessor) bytesToData(content []byte) (data interface{}, err error) {
-	return data, p.yamlUnmarshal(content, &data)
+	err = p.yamlUnmarshal(content, &data)
+	if err != nil {
+		return nil, stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+	}
+	return data, nil
 }
 
 func (p *DeliveryConfigProcessor) findEnvIndex(envName string) int {
@@ -567,7 +577,10 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 
 	err = json.Unmarshal(content, &data)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "failed to parse response from diff api")
+		return nil, stacktrace.Propagate(
+			ErrorInvalidContent{Content: content, ParseError: err},
+			"failed to parse response from diff api",
+		)
 	}
 
 	diffs := []*ManagedResourceDiff{}

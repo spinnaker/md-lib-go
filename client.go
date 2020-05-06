@@ -60,24 +60,13 @@ func commonParsedGet(cli *Client, u string, result interface{}) error {
 
 	err = json.Unmarshal(content, result)
 	if err != nil {
-		return stacktrace.Propagate(err, "expected JSON from %s, failed to parse %q as JSON", u, string(content))
+		return stacktrace.Propagate(
+			ErrorInvalidContent{Content: content, ParseError: err},
+			"expected JSON from %s, failed to parse %q as JSON", u, string(content),
+		)
 	}
 
 	return nil
-}
-
-type ErrorUnexpectedResponse struct {
-	StatusCode int
-	URL        string
-	Content    []byte
-}
-
-func (e ErrorUnexpectedResponse) Error() string {
-	return fmt.Sprintf("Unexpected response from %s, expected 200 or 201 but got %d", e.URL, e.StatusCode)
-}
-
-func (e ErrorUnexpectedResponse) Parse(data interface{}) error {
-	return json.Unmarshal(e.Content, data)
 }
 
 type requestBody struct {

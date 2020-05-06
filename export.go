@@ -6,7 +6,7 @@ import (
 
 	"github.com/palantir/stacktrace"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -239,5 +239,9 @@ func ExportArtifact(cli *Client, resource *ExportableResource, result interface{
 	if err != nil {
 		return nil
 	}
-	return yaml.Unmarshal(content, result)
+	err = yaml.Unmarshal(content, result)
+	if err != nil {
+		return stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+	}
+	return nil
 }
