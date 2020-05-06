@@ -242,7 +242,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		}
 		modifiedResources[resource] = added
 
-		if resource.ResourceType != mdlib.ClusterResourceType {
+		if resource.ResourceType == mdlib.ClusterResourceType {
 			opts.Logger.Printf("Exporting Artifact for %s", resource)
 			artifact := &mdlib.DeliveryArtifact{}
 			err := mdlib.ExportArtifact(cli, resource, artifact)
