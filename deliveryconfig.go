@@ -374,41 +374,6 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	if err != nil {
 		return false, stacktrace.Propagate(err, "failed to parse content")
 	}
-	// fixup imageProvider.reference [ec2/cluster] or container.reference [titus/cluster] to a match artifacts
-	if dataMap, ok := data.(map[string]interface{}); ok {
-		if spec, ok := dataMap["spec"].(map[string]interface{}); ok {
-			if imageProvider, ok := spec["imageProvider"].(map[string]interface{}); ok {
-				// this is an ec2/cluster, check for reference
-				if _, ok := imageProvider["reference"]; !ok {
-					// need to add a reference
-					for _, current := range p.deliveryConfig.Artifacts {
-						if current.Name == imageProvider["name"].(string) && current.Type == DebianArtifactType {
-							spec["imageProvider"] = map[string]interface{}{
-								"reference": current.RefName(),
-							}
-							break
-						}
-					}
-				}
-			} else if container, ok := spec["container"].(map[string]interface{}); ok {
-				// this is an titus/cluster, check for reference
-				if _, ok := container["reference"]; !ok {
-					// need to add a reference
-					name := fmt.Sprintf("%s/%s", container["organization"], container["image"])
-					for _, current := range p.deliveryConfig.Artifacts {
-						if current.Name == name && current.Type == DockerArtifactType {
-							spec["container"] = map[string]interface{}{
-								"reference": current.RefName(),
-							}
-							break
-						}
-					}
-				}
-			}
-			dataMap["spec"] = spec
-		}
-		data = dataMap
-	}
 
 	envIx := p.findEnvIndex(envName)
 	if environments, ok := p.rawDeliveryConfig["environments"].([]interface{}); !ok || envIx < 0 {
