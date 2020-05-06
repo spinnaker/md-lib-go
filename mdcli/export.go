@@ -8,6 +8,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/mgutz/ansi"
+	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/xlab/treeprint"
 	"golang.org/x/crypto/ssh/terminal"
@@ -89,7 +90,7 @@ func NotificationsProvider(np func(envName string, current mdlib.DeliveryConfig)
 
 // Export is a command line interface to discover exportable Spinnaker resources and then
 // optional add those resources to a local delivery config file to be later managed by Spinnaker.
-func Export(opts *CommandOptions, appName string, serviceAccount string, overrides ...ExportOption) error {
+func Export(opts *CommandOptions, appName string, serviceAccount string, overrides ...ExportOption) (int, error) {
 	exportOpts := &exportOptions{
 		customResourceScanner:  mdlib.ExportableApplicationResources,
 		customResourceExporter: mdlib.ExportResource,
@@ -107,14 +108,14 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	appData, err := mdlib.FindApplicationResources(cli, appName)
 	if err != nil {
-		return err
+		return 1, err
 	}
 
 	exportable := exportOpts.customResourceScanner(appData)
 
 	if len(exportable) == 0 {
 		opts.Logger.Printf("Found no resources to export for Spinnaker app %q", appName)
-		return nil
+		return 0, nil
 	}
 
 	if exportOpts.onlyAccount != "" {
@@ -139,7 +140,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	err = mdProcessor.Load()
 	if err != nil {
-		return err
+		return 1, err
 	}
 
 	environments := mdProcessor.AllEnvironments()
@@ -167,7 +168,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	} else {
 		_, h, err := terminal.GetSize(int(opts.Stdout.Fd()))
 		if err != nil {
-			return err
+			return 1, err
 		}
 		pageSize := len(options)
 		if pageSize+2 > h {
@@ -186,9 +187,11 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		)
 
 		if err != nil {
-			return err
+			return 1, err
 		}
 	}
+
+	errors := []error{}
 
 	addedArtifacts := []*mdlib.DeliveryArtifact{}
 	for _, selection := range selected {
@@ -200,7 +203,8 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		artifact := &mdlib.DeliveryArtifact{}
 		err := mdlib.ExportArtifact(cli, resource, artifact)
 		if err != nil {
-			return err
+			errors = append(errors, err)
+			continue
 		}
 		if mdProcessor.InsertArtifact(artifact) {
 			found := false
@@ -223,7 +227,8 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		opts.Logger.Printf("Exporting %s", resource)
 		content, err := exportOpts.customResourceExporter(cli, resource, serviceAccount)
 		if err != nil {
-			return err
+			errors = append(errors, stacktrace.Propagate(err, "Failed to export resource %s", resource))
+			continue
 		}
 
 		envName := exportOpts.envName
@@ -249,7 +254,8 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 			)
 			if err != nil {
-				return err
+				errors = append(errors, stacktrace.Propagate(err, "Failed to read prompt for environment on resource %s", resource))
+				continue
 			}
 			envName = selectedEnvironment
 			selectedEnvironments[resource.Account] = selectedEnvironment
@@ -257,25 +263,26 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 		added, err := mdProcessor.UpsertResource(resource, envName, content)
 		if err != nil {
-			return err
+			errors = append(errors, stacktrace.Propagate(err, "Failed to upsert delivery config for resource %s", resource))
+			continue
 		}
 		modifiedResources[resource] = added
 	}
 
 	err = mdProcessor.Save()
 	if err != nil {
-		return err
+		return 1, err
 	}
 
 	// reload delivery config so we can print out the tree structure
 	delivery := mdlib.DeliveryConfig{}
 	contents, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
 	if err != nil {
-		return err
+		return 1, err
 	}
 	err = yaml.Unmarshal(contents, &delivery)
 	if err != nil {
-		return err
+		return 1, err
 	}
 
 	// start building a tree view of resources
@@ -350,5 +357,13 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	fmt.Fprintf(opts.Stdout, "Export Summary:\n%s", tree.String())
 
-	return nil
+	if len(errors) > 0 {
+		fmt.Fprintf(opts.Stderr, "ERROR: Some errors occurred during export:\n")
+		for _, err := range errors {
+			fmt.Fprintf(opts.Stderr, "ERROR: %s", err)
+		}
+		// we handled the errors here, just return non-zero exit code
+		return 1, nil
+	}
+	return 0, nil
 }

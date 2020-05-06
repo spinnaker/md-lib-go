@@ -84,7 +84,7 @@ func main() {
 			exportFlags.Usage()
 			return
 		}
-		err = mdcli.Export(
+		exitCode, err = mdcli.Export(
 			opts,
 			appName,
 			serviceAccount,
