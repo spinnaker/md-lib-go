@@ -304,6 +304,9 @@ func (p *DeliveryConfigProcessor) Load() error {
 // Save will serialize the delivery config to disk.
 func (p *DeliveryConfigProcessor) Save() error {
 	log.Printf("Saving")
+	if _, ok := p.rawDeliveryConfig["name"]; !ok && p.appName != "" {
+		p.rawDeliveryConfig["name"] = fmt.Sprintf("%s-manifest", p.appName)
+	}
 	if _, ok := p.rawDeliveryConfig["application"]; !ok && p.appName != "" {
 		p.rawDeliveryConfig["application"] = p.appName
 	}
