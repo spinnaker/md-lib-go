@@ -360,7 +360,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	if len(errors) > 0 {
 		fmt.Fprintf(opts.Stderr, "ERROR: Some errors occurred during export:\n")
 		for _, err := range errors {
-			fmt.Fprintf(opts.Stderr, "ERROR: %s", err)
+			fmt.Fprintf(opts.Stderr, "ERROR: %s\n", err)
 		}
 		// we handled the errors here, just return non-zero exit code
 		return 1, nil
