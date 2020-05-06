@@ -193,35 +193,9 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	errors := []error{}
 
-	addedArtifacts := []*mdlib.DeliveryArtifact{}
-	for _, selection := range selected {
-		resource := exportable[optionsIndexByName[selection]]
-		if resource.ResourceType != mdlib.ClusterResourceType {
-			continue
-		}
-		opts.Logger.Printf("Exporting Artifact for %s", resource)
-		artifact := &mdlib.DeliveryArtifact{}
-		err := mdlib.ExportArtifact(cli, resource, artifact)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		if mdProcessor.InsertArtifact(artifact) {
-			found := false
-			for _, a := range addedArtifacts {
-				if a.Equal(artifact) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				addedArtifacts = append(addedArtifacts, artifact)
-			}
-		}
-	}
-
 	selectedEnvironments := map[string]string{}
 	modifiedResources := map[*mdlib.ExportableResource]bool{}
+	addedArtifacts := []*mdlib.DeliveryArtifact{}
 	for _, selection := range selected {
 		resource := exportable[optionsIndexByName[selection]]
 		opts.Logger.Printf("Exporting %s", resource)
@@ -267,6 +241,28 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 			continue
 		}
 		modifiedResources[resource] = added
+
+		if resource.ResourceType != mdlib.ClusterResourceType {
+			opts.Logger.Printf("Exporting Artifact for %s", resource)
+			artifact := &mdlib.DeliveryArtifact{}
+			err := mdlib.ExportArtifact(cli, resource, artifact)
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
+			if mdProcessor.InsertArtifact(artifact) {
+				found := false
+				for _, a := range addedArtifacts {
+					if a.Equal(artifact) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					addedArtifacts = append(addedArtifacts, artifact)
+				}
+			}
+		}
 	}
 
 	err = mdProcessor.Save()
