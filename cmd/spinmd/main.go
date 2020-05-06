@@ -92,7 +92,7 @@ func main() {
 			mdcli.AssumeEnvName(envName),
 		)
 	case "publish":
-		err = mdcli.Publish(opts)
+		exitCode, err = mdcli.Publish(opts)
 	case "validate":
 		exitCode, err = mdcli.Validate(opts)
 	case "diff":
