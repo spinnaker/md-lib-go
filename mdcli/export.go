@@ -111,7 +111,6 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	}
 
 	exportable := exportOpts.customResourceScanner(appData)
-	artifacts := mdlib.ReferencedArtifacts(appData)
 
 	if len(exportable) == 0 {
 		opts.Logger.Printf("Found no resources to export for Spinnaker app %q", appName)
@@ -191,11 +190,29 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		}
 	}
 
-	sort.Sort(mdlib.ArtifactSorter(artifacts))
-	addedArtifacts := map[mdlib.DeliveryArtifact]struct{}{}
-	for _, artifact := range artifacts {
+	addedArtifacts := []*mdlib.DeliveryArtifact{}
+	for _, selection := range selected {
+		resource := exportable[optionsIndexByName[selection]]
+		if resource.ResourceType != mdlib.ClusterResourceType {
+			continue
+		}
+		opts.Logger.Printf("Exporting Artifact for %s", resource)
+		artifact := &mdlib.DeliveryArtifact{}
+		err := mdlib.ExportArtifact(cli, resource, artifact)
+		if err != nil {
+			return err
+		}
 		if mdProcessor.InsertArtifact(artifact) {
-			addedArtifacts[*artifact] = struct{}{}
+			found := false
+			for _, a := range addedArtifacts {
+				if a.Equal(artifact) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				addedArtifacts = append(addedArtifacts, artifact)
+			}
 		}
 	}
 
@@ -272,7 +289,14 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 	artNode := tree.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("blue+b"), "artifacts", ansi.Reset))
 	for _, art := range delivery.Artifacts {
-		if _, ok := addedArtifacts[art]; ok {
+		added := false
+		for _, a := range addedArtifacts {
+			if a.Equal(&art) {
+				added = true
+				break
+			}
+		}
+		if added {
 			artNode.AddMetaNode(fmt.Sprintf("%s%s%s", ansi.Green, "added", ansi.Reset), art.RefName())
 		} else {
 			artNode.AddNode(art.RefName())

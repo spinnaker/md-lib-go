@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -49,6 +50,12 @@ type DeliveryArtifact struct {
 	Type               string
 	Reference          string `json:"reference,omitempty" yaml:"reference,omitempty"`
 	TagVersionStrategy string `json:"tagVersionStrategy.omitempty" yaml:"tagVersionStrategy,omitempty"`
+	VMOptions          struct {
+		BaseLabel string   `json:"baseLabel,omitempty" yaml:"baseLabel,omitempty"`
+		BaseOS    string   `json:"baseOs,omitempty" yaml:"baseOs,omitempty"`
+		Regions   []string `json:"regions,omitempty" yaml:"regions,omitempty"`
+		StoreType string   `json:"storeType,omitempty" yaml:"storeType,omitempty"`
+	} `json:"vmOptions,omitempty" yaml:"vmOptions,omitempty"`
 }
 
 // RefName returns the Reference value for comparisons.  it will use the
@@ -60,6 +67,21 @@ func (a *DeliveryArtifact) RefName() string {
 	return a.Name
 }
 
+func (a *DeliveryArtifact) Equal(b *DeliveryArtifact) bool {
+	// note we ignore the `Name` property when comparing equality
+	if a.RefName() != b.RefName() {
+		return false
+	}
+	if a.TagVersionStrategy != b.TagVersionStrategy {
+		return false
+	}
+	if !reflect.DeepEqual(a.VMOptions, b.VMOptions) {
+		return false
+	}
+	return true
+
+}
+
 // DeliveryResource contains the necessary configuration for a managed delivery resource
 type DeliveryResource struct {
 	Kind string
@@ -68,18 +90,11 @@ type DeliveryResource struct {
 
 // Name returns the name for the type of delivery resource
 func (r DeliveryResource) Name() string {
-	if strings.HasPrefix(r.Kind, "bakery/image@") {
-		return r.Spec.ArtifactName
-	}
 	return r.Spec.Moniker.String()
 }
 
 // Account return the account for the delivery resource
 func (r DeliveryResource) Account() string {
-	if strings.HasPrefix(r.Kind, "bakery/image@") {
-		// image does not have a location, fake it out now
-		return "bakery"
-	}
 	return r.Spec.Locations.Account
 }
 
@@ -471,9 +486,11 @@ func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) boo
 
 // InsertArtifact will add an artifact to the delivery config if it is not already present.
 func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (added bool) {
+	// TODO change this to detect changes in artifacts, not simple equality.  If
+	// two artifacts have same refname but different values, then this is likely
+	// an update operation
 	for _, current := range p.deliveryConfig.Artifacts {
-		if current.Name == artifact.Name && current.Type == artifact.Type {
-			// found an existing artifact, so do not insert this one
+		if current.Equal(artifact) {
 			return false
 		}
 	}

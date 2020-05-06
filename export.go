@@ -6,6 +6,7 @@ import (
 
 	"github.com/palantir/stacktrace"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -170,37 +171,6 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 	return data, nil
 }
 
-// ReferencedArtifacts will return a list of DeliveryArtifacts that are
-// referenced by currently deployed application resources.
-func ReferencedArtifacts(appData *ApplicationResources) []*DeliveryArtifact {
-	uniqArtifacts := map[DeliveryArtifact]struct{}{}
-
-	for _, asg := range appData.ServerGroups {
-		if asg.BuildInfo.PackageName != "" {
-			uniqArtifacts[DeliveryArtifact{
-				Name: asg.BuildInfo.PackageName,
-				Type: DebianArtifactType,
-			}] = struct{}{}
-			continue
-		}
-		if asg.BuildInfo.Docker.Image != "" {
-			uniqArtifacts[DeliveryArtifact{
-				Name: asg.BuildInfo.Docker.Image,
-				Type: DockerArtifactType,
-			}] = struct{}{}
-			continue
-		}
-	}
-
-	artifacts := []*DeliveryArtifact{}
-	for artifact := range uniqArtifacts {
-		artifact := artifact
-		artifacts = append(artifacts, &artifact)
-	}
-
-	return artifacts
-}
-
 // ExportableApplicationResources will return a list of ExportableResources that
 // are found from the currently deployed application resources.
 func ExportableApplicationResources(appData *ApplicationResources) []*ExportableResource {
@@ -253,4 +223,21 @@ func ExportResource(cli *Client, resource *ExportableResource, serviceAccount st
 		),
 		requestBody{},
 	)
+}
+
+// ExportArtifact will contact the Spinnaker REST API to collect the YAML delivery config representation for
+// the artifacts for the given cluster
+func ExportArtifact(cli *Client, resource *ExportableResource, result interface{}) error {
+	content, err := commonRequest(cli, "GET",
+		fmt.Sprintf("/managed/resources/export/artifact/%s/%s/%s",
+			resource.CloudProvider,
+			resource.Account,
+			resource.Name,
+		),
+		requestBody{},
+	)
+	if err != nil {
+		return nil
+	}
+	return yaml.Unmarshal(content, result)
 }
