@@ -237,7 +237,7 @@ func ExportArtifact(cli *Client, resource *ExportableResource, result interface{
 		requestBody{},
 	)
 	if err != nil {
-		return nil
+		return stacktrace.Propagate(err, "")
 	}
 	err = yaml.Unmarshal(content, result)
 	if err != nil {
