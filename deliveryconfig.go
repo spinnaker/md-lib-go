@@ -310,6 +310,11 @@ func (p *DeliveryConfigProcessor) Save() error {
 	if _, ok := p.rawDeliveryConfig["serviceAccount"]; !ok && p.serviceAccount != "" {
 		p.rawDeliveryConfig["serviceAccount"] = p.serviceAccount
 	}
+	// ensure if no artifacts are present then we set it to an empty list, it is
+	// required by the API
+	if _, ok := p.rawDeliveryConfig["artifacts"]; !ok {
+		p.rawDeliveryConfig["artifacts"] = []interface{}{}
+	}
 
 	output, err := p.yamlMarshal(&p.rawDeliveryConfig)
 	if err != nil {
