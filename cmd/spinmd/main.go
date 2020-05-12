@@ -38,9 +38,43 @@ func main() {
 		log.Fatalf("Unable to stat %s: %s", configFile, err)
 	}
 
-	httpClient, ctx, err := gateclient.NewHTTPClient(context.Background(), &cfg)
+	httpClient, err := gateclient.InitializeHTTPClient(cfg.Auth)
 	if err != nil {
 		log.Fatalf("Failed to create client: %s", err)
+	}
+
+	ctx, err := gateclient.ContextWithAuth(context.Background(), cfg.Auth)
+	if err != nil {
+		log.Fatalf("Failed to extract valid login credentials from %s: %s", configFile, err)
+	}
+
+	output := func(msg string) {
+		fmt.Println(msg)
+	}
+
+	updatedConfig, err := gateclient.Authenticate(output, httpClient, cfg.Gate.Endpoint, cfg.Auth)
+	if err != nil {
+		log.Fatalf("Failed to authenticate with Spinnaker: %s", err)
+	}
+
+	if updatedConfig {
+		// config updated with credential information, so write it back out
+		fd, err := os.Create(configFile)
+		if err != nil {
+			log.Fatalf("Failed to open %q: %s", configFile, err)
+		}
+		content, err := yaml.Marshal(cfg)
+		if err != nil {
+			log.Fatalf("Failed to write updated config file %q: %s", configFile, err)
+		}
+		err = fd.Write(content)
+		if err != nil {
+			log.Fatal("Failed to write to configFile %q: %s", configFile, err)
+		}
+		err = fd.Close()
+		if err != nil {
+			log.Fatalf("'Failed to close configFile %q after writing: %s", configFile, err)
+		}
 	}
 
 	opts.HTTPClient = func(req *http.Request) (*http.Response, error) {
