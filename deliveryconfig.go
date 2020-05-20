@@ -32,10 +32,11 @@ var (
 
 // DeliveryConfig holds the structure for the manage delivery config stored in .netflix/spinnaker.yml
 type DeliveryConfig struct {
-	Name         string
-	Application  string
-	Artifacts    []DeliveryArtifact
-	Environments []DeliveryEnvironment
+	Name           string
+	Application    string
+	ServiceAccount string `yaml:"serviceAccount"`
+	Artifacts      []DeliveryArtifact
+	Environments   []DeliveryEnvironment
 }
 
 // DeliveryEnvironment contains the resources per environment.
