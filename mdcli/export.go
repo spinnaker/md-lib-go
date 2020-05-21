@@ -250,16 +250,33 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				errors = append(errors, err)
 				continue
 			}
-			if mdProcessor.InsertArtifact(artifact) {
-				found := false
-				for _, a := range addedArtifacts {
-					if a.Equal(artifact) {
-						found = true
-						break
+			if added, updatedRef := mdProcessor.InsertArtifact(artifact); added || updatedRef != "" {
+				if added {
+					found := false
+					for _, a := range addedArtifacts {
+						if a.Equal(artifact) && a.RefName() == artifact.RefName() {
+							found = true
+							break
+						}
+					}
+					if !found {
+						addedArtifacts = append(addedArtifacts, artifact)
 					}
 				}
-				if !found {
-					addedArtifacts = append(addedArtifacts, artifact)
+				if updatedRef != "" {
+					opts.Logger.Printf("WARNING updating artifact reference name for %s due to collision", resource)
+					opts.Logger.Printf("WARNING artifact reference changed to %s to prevent collision", updatedRef)
+					err := mdProcessor.UpdateArtifactReference(&content, updatedRef)
+					if err != nil {
+						errors = append(errors, err)
+						continue
+					}
+					added, err = mdProcessor.UpsertResource(resource, envName, content)
+					if err != nil {
+						errors = append(errors, stacktrace.Propagate(err, "Failed to upsert delivery config for resource %s", resource))
+						continue
+					}
+					modifiedResources[resource] = added
 				}
 			}
 		}

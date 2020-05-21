@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/palantir/stacktrace"
 	"gopkg.in/yaml.v3"
@@ -70,9 +71,6 @@ func (a *DeliveryArtifact) RefName() string {
 
 func (a *DeliveryArtifact) Equal(b *DeliveryArtifact) bool {
 	// note we ignore the `Name` property when comparing equality
-	if a.RefName() != b.RefName() {
-		return false
-	}
 	if a.TagVersionStrategy != b.TagVersionStrategy {
 		return false
 	}
@@ -380,6 +378,11 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	if err != nil {
 		return false, stacktrace.Propagate(err, "failed to parse content")
 	}
+	deliveryResource := DeliveryResource{}
+	err = yaml.Unmarshal(content, &deliveryResource)
+	if err != nil {
+		return false, stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+	}
 
 	envIx := p.findEnvIndex(envName)
 	if environments, ok := p.rawDeliveryConfig["environments"].([]interface{}); !ok || envIx < 0 {
@@ -394,7 +397,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		// update in memory struct in case we look for this environment again later
 		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, DeliveryEnvironment{
 			Name:      envName,
-			Resources: []DeliveryResource{{}},
+			Resources: []DeliveryResource{deliveryResource},
 		})
 		added = true
 	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
@@ -407,9 +410,11 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		if resources, ok := env["resources"].([]interface{}); ok {
 			resourceIx := p.findResourceIndex(resource, envIx)
 			if resourceIx < 0 {
+				p.deliveryConfig.Environments[envIx].Resources = append(p.deliveryConfig.Environments[envIx].Resources, deliveryResource)
 				resources = append(resources, data)
 				added = true
 			} else {
+				p.deliveryConfig.Environments[envIx].Resources[resourceIx] = deliveryResource
 				resources[resourceIx] = data
 			}
 			env["resources"] = resources
@@ -463,18 +468,87 @@ func (p *DeliveryConfigProcessor) ResourceExists(search *ExportableResource) boo
 }
 
 // InsertArtifact will add an artifact to the delivery config if it is not already present.
-func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (added bool) {
+func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (added bool, updatedRef string) {
 	// TODO change this to detect changes in artifacts, not simple equality.  If
 	// two artifacts have same refname but different values, then this is likely
 	// an update operation
+	collision := false
 	for _, current := range p.deliveryConfig.Artifacts {
 		if current.Equal(artifact) {
-			return false
+			if current.RefName() == artifact.RefName() {
+				return false, ""
+			}
+			artifact.Reference = current.RefName()
+			return false, artifact.Reference
 		}
+		// contents don't match but have the same ref name, so we
+		// need to rename the current ref
+		if current.RefName() == artifact.RefName() {
+			collision = true
+		}
+	}
+	if collision {
+		artifact.Reference = fmt.Sprintf("%s-%d", artifact.RefName(), time.Now().UnixNano())
+		updatedRef = artifact.Reference
 	}
 	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, *artifact)
 	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
-	return true
+	return true, updatedRef
+}
+
+func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updatedRef string) error {
+	if content == nil {
+		return stacktrace.NewError("cannot update nil content for artifact reference")
+	}
+	data := map[string]interface{}{}
+	err := yaml.Unmarshal(*content, &data)
+	if err != nil {
+		return stacktrace.Propagate(err, "Failed to parse resource as yaml to updated reference")
+	}
+	if kind, ok := data["kind"].(string); ok {
+		switch kind {
+		case "titus/cluster@v1":
+			// kind: titus/cluster@v1
+			// spec:
+			//   container:
+			//     reference: some/image
+			if spec, ok := data["spec"].(map[string]interface{}); ok {
+				if container, ok := spec["container"].(map[string]interface{}); ok {
+					container["reference"] = updatedRef
+					spec["container"] = container
+					data["spec"] = spec
+				} else {
+					return stacktrace.NewError("resource for titus/cluster@v1 missing spec.cluster property")
+				}
+			} else {
+				return stacktrace.NewError("resource for titus/cluster@v1 missing spec property")
+			}
+		case "ec2/cluster@v1":
+			// kind: ec2/cluster@v1
+			// spec:
+			//   imageProvider:
+			//     reference: some-deb
+			if spec, ok := data["spec"].(map[string]interface{}); ok {
+				if imageProvider, ok := spec["imageProvider"].(map[string]interface{}); ok {
+					imageProvider["reference"] = updatedRef
+					spec["imageProvider"] = imageProvider
+					data["spec"] = spec
+				} else {
+					return stacktrace.NewError("resource for ec2/cluster@v1 missing spec.imageProvider property")
+				}
+			} else {
+				return stacktrace.NewError("resource for ec2/cluster@v1 missing spec property")
+			}
+		default:
+			return stacktrace.NewError("cannot update artifact reference for unexpected kind: %q", kind)
+		}
+	}
+	updated, err := yaml.Marshal(&data)
+	if err != nil {
+		return stacktrace.Propagate(err, "Failed to marshal resource for updated artifact reference")
+	}
+	*content = updated
+	return nil
 }
 
 // Publish will post the delivery config to the Spinnaker API so that Spinnaker

@@ -67,9 +67,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to write updated config file %q: %s", configFile, err)
 		}
-		err = fd.Write(content)
+		_, err = fd.Write(content)
 		if err != nil {
-			log.Fatal("Failed to write to configFile %q: %s", configFile, err)
+			log.Fatalf("Failed to write to configFile %q: %s", configFile, err)
 		}
 		err = fd.Close()
 		if err != nil {
