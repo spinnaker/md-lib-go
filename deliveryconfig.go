@@ -43,6 +43,7 @@ type DeliveryConfig struct {
 // DeliveryEnvironment contains the resources per environment.
 type DeliveryEnvironment struct {
 	Name      string
+	Locations DeliveryResourceLocations
 	Resources []DeliveryResource
 }
 
@@ -141,6 +142,17 @@ type DeliveryResourceSpec struct {
 // DeliveryResourceLocations contains location details for delivery resources
 type DeliveryResourceLocations struct {
 	Account string
+	Regions []DeliveryResourceLocationRegion
+}
+
+// Empty will return true if the DeliveryResourceLocations has no values set
+func (l DeliveryResourceLocations) Empty() bool {
+	return l.Account == "" && len(l.Regions) == 0
+}
+
+// DeliveryResourceLocationRegion contains the region name
+type DeliveryResourceLocationRegion struct {
+	Name string
 }
 
 // DeliveryImageProvider contains the artifact details used to make the image
@@ -449,6 +461,10 @@ func (p *DeliveryConfigProcessor) findResourceIndex(search *ExportableResource, 
 	}
 
 	for ix, resource := range p.deliveryConfig.Environments[envIx].Resources {
+		// inherit the location from the env if the resource location is empty
+		if resource.Spec.Locations.Empty() {
+			resource.Spec.Locations = p.deliveryConfig.Environments[envIx].Locations
+		}
 		if resource.Match(search) {
 			return ix
 		}
