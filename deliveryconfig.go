@@ -545,7 +545,7 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 			} else {
 				return stacktrace.NewError("resource for titus/cluster@v1 missing spec property")
 			}
-		case strings.HasPrefix(kind, "ec2/cluster@v1"):
+		case kind == "ec2/cluster@v1":
 			// kind: ec2/cluster@v1
 			// spec:
 			//   imageProvider:
@@ -558,6 +558,15 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 				} else {
 					return stacktrace.NewError("resource for ec2/cluster@v1 missing spec.imageProvider property")
 				}
+			} else {
+				return stacktrace.NewError("resource for ec2/cluster@v1 missing spec property")
+			}
+		case kind == "ec2/cluster@v1.1":
+			// kind: ec2/cluster@v1.1
+			// spec:
+			//   artifactReference: some-deb
+			if spec, ok := data["spec"].(map[string]interface{}); ok {
+				spec["artifactReference"] = updatedRef
 			} else {
 				return stacktrace.NewError("resource for ec2/cluster@v1 missing spec property")
 			}
