@@ -1,0 +1,14 @@
+---
+kind: "ec2/security-group@v1"
+metadata: {}
+spec:
+  moniker:
+    app: "myapp"
+    stack: "rds"
+  locations:
+    account: "dbs"
+    vpc: "vpc0"
+    regions:
+    - name: "us-west-2"
+  description: "Security Group for myapp rds"
+  inboundRules: []

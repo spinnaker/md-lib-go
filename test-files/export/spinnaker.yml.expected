@@ -69,4 +69,17 @@ environments:
         vpc: vpc0
       moniker:
         app: myapp
+  - kind: ec2/security-group@v1
+    metadata: {}
+    spec:
+      description: Security Group for myapp rds
+      inboundRules: []
+      locations:
+        account: dbs
+        regions:
+        - name: us-west-2
+        vpc: vpc0
+      moniker:
+        app: myapp
+        stack: rds
 serviceAccount: myteam@example.com
