@@ -2,6 +2,7 @@ package mdlib
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/palantir/stacktrace"
@@ -103,7 +104,7 @@ type ApplicationResources struct {
 	AppName        string
 	ServerGroups   []ServerGroup
 	LoadBalancers  []LoadBalancer
-	SecurityGroups map[Account]SecurityGroups
+	SecurityGroups []SecurityGroup
 }
 
 // FindApplicationResources will collect application resources from various Spinnaker REST
@@ -111,8 +112,7 @@ type ApplicationResources struct {
 func FindApplicationResources(cli *Client, appName string) (*ApplicationResources, error) {
 	var g errgroup.Group
 	data := &ApplicationResources{
-		AppName:        appName,
-		SecurityGroups: make(map[Account]SecurityGroups),
+		AppName: appName,
 	}
 
 	g.Go(func() error {
@@ -121,52 +121,13 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 	g.Go(func() error {
 		return GetLoadBalancers(cli, appName, &data.LoadBalancers)
 	})
+	g.Go(func() error {
+		return GetSecurityGroups(cli, appName, &data.SecurityGroups)
+	})
 
 	err := g.Wait()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "failed to load resources")
-	}
-
-	uniqAccounts := map[string]struct{}{}
-
-	for _, asg := range data.ServerGroups {
-		uniqAccounts[asg.Account] = struct{}{}
-	}
-
-	for _, lb := range data.LoadBalancers {
-		uniqAccounts[lb.Account] = struct{}{}
-	}
-
-	// accounts might not primary or secondary.  Secondary accounts are usually logical partitions within
-	// an existing "primary" account.  But security groups are only on the primary accounts, so
-	// if we have any secondary accounts, we need to remap it back to the primary for the secGroup lookup.
-	uniqPrimaryAccounts := map[string]struct{}{}
-	for account := range uniqAccounts {
-		cred := Credential{}
-		err := GetCredential(cli, account, &cred)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "failed to load credential data for account %q", account)
-		}
-		if cred.AWSAccount == "" {
-			uniqPrimaryAccounts[account] = struct{}{}
-		} else {
-			uniqPrimaryAccounts[cred.AWSAccount] = struct{}{}
-		}
-	}
-
-	g = errgroup.Group{}
-	for account := range uniqPrimaryAccounts {
-		account := account
-		sgs := make(SecurityGroups)
-		// TODO do we need defer?
-		data.SecurityGroups[account] = sgs
-		g.Go(func() error {
-			return GetSecurityGroups(cli, account, &sgs)
-		})
-	}
-	err = g.Wait()
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "failed to load security group resources")
 	}
 
 	return data, nil
@@ -188,18 +149,14 @@ func ExportableApplicationResources(appData *ApplicationResources) []*Exportable
 		}
 
 		// only export things by default that look like the belong to this app
-		if strings.HasPrefix(lb.Name, appData.AppName) {
+		if matchAppName(appData.AppName, lb.Name) {
 			uniqResources[ExportableResource{resourceType, lb.Type, lb.Account, lb.Name}] = struct{}{}
 		}
 	}
 
-	for account, securityGroupRegions := range appData.SecurityGroups {
-		for region := range securityGroupRegions {
-			for _, sg := range securityGroupRegions[region] {
-				if strings.HasPrefix(sg.Name, appData.AppName) {
-					uniqResources[ExportableResource{SecurityGroupResourceType, AWSCloudProvider, account, sg.Name}] = struct{}{}
-				}
-			}
+	for _, sg := range appData.SecurityGroups {
+		if matchAppName(appData.AppName, sg.Name) {
+			uniqResources[ExportableResource{SecurityGroupResourceType, AWSCloudProvider, sg.Account, sg.Name}] = struct{}{}
 		}
 	}
 
@@ -245,4 +202,11 @@ func ExportArtifact(cli *Client, resource *ExportableResource, result interface{
 		return stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
 	}
 	return nil
+}
+
+func matchAppName(appName, resourceName string) bool {
+	// regex ^appName(-.*)?$
+	// this will match "appName" or "appName-something", but not "appName2"
+	rx := regexp.MustCompile(fmt.Sprintf(`^%s(-.*)?$`, appName))
+	return rx.MatchString(resourceName)
 }

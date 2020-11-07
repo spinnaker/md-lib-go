@@ -59,16 +59,15 @@ func TestExport(t *testing.T) {
 
 	// we expect a bunch of GET requests to various APIs
 	require.Equal(t, map[string]int{
-		"GET /applications/myapp/loadBalancers":                        1,
-		"GET /applications/myapp/serverGroups":                         1,
-		"GET /credentials/test":                                        1,
-		"GET /credentials/titustest":                                   1,
-		"GET /managed/resources/export/artifact/aws/test/myapp":        1,
-		"GET /managed/resources/export/artifact/titus/titustest/myapp": 1,
-		"GET /managed/resources/export/aws/test/cluster/myapp":         1,
-		"GET /managed/resources/export/aws/test/security-group/myapp":  1,
-		"GET /managed/resources/export/titus/titustest/cluster/myapp":  1,
-		"GET /securityGroups/test":                                     1,
+		"GET /applications/myapp/loadBalancers":                          1,
+		"GET /applications/myapp/serverGroups":                           1,
+		"GET /managed/resources/export/artifact/aws/test/myapp":          1,
+		"GET /managed/resources/export/artifact/titus/titustest/myapp":   1,
+		"GET /managed/resources/export/aws/test/cluster/myapp":           1,
+		"GET /managed/resources/export/aws/test/security-group/myapp":    1,
+		"GET /managed/resources/export/aws/dbs/security-group/myapp-rds": 1,
+		"GET /managed/resources/export/titus/titustest/cluster/myapp":    1,
+		"GET /search": 1,
 	}, requests)
 
 	got, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))

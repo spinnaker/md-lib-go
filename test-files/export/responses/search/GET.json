@@ -1,0 +1,33 @@
+[
+    {
+        "totalMatches": 2,
+        "pageNumber": 1,
+        "pageSize": 500,
+        "platform": "aws",
+        "query": "myapp ",
+        "results": [
+            {
+                "provider": "aws",
+                "type": "securityGroups",
+                "application": "myapp",
+                "name": "myapp",
+                "id": "sg-123456789",
+                "region": "us-east-1",
+                "account": "test",
+                "vpcId": "vpc-1234",
+                "url": "/securityGroups/test/aws/myapp?region=us-east-1"
+            },
+            {
+                "provider": "aws",
+                "type": "securityGroups",
+                "application": "myapp",
+                "name": "myapp-rds",
+                "id": "sg-123456789",
+                "region": "us-west-2",
+                "account": "dbs",
+                "vpcId": "vpc-12345",
+                "url": "/securityGroups/dbs/aws/myapp-rds?region=us-west-2"
+            }
+        ]
+    }
+]
