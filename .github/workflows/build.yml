@@ -7,7 +7,7 @@ jobs:
         strategy:
             matrix:
                 go: [ '1.15', '1.14', '1.13' ]
-                os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+                os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
         steps:
             -
                 uses: actions/checkout@v2
@@ -17,7 +17,7 @@ jobs:
                 with:
                     go-version: ${{ matrix.go }}
             -
-                name: Compile
+                name: Go Build
                 run: go build -gcflags="-e" ./cmd/spinmd
                 env:
                     CGO_ENABLED: 0
@@ -28,7 +28,7 @@ jobs:
         strategy:
             matrix:
                 go: [ '1.15', '1.14', '1.13' ]
-                os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+                os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
         steps:
             -
                 uses: actions/checkout@v2
@@ -38,14 +38,12 @@ jobs:
                 with:
                     go-version: ${{ matrix.go }}
             -
-                name: Compile
+                name: Go Test
                 run: go test -v ./...
-                env:
-                    CGO_ENABLED: 0
 
     lint:
         name: Lint
-        runs-on: linux-latest
+        runs-on: ubuntu-latest
         steps:
             -
                 uses: actions/checkout@v2
@@ -59,3 +57,6 @@ jobs:
                 run: go get -v -u github.com/golangci/golangci-lint/cmd/golangci-lint
                 env:
                     GO111MODULE: off
+            -
+                name: Go Lint
+                run: golangci-lint run --fast
