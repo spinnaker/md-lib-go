@@ -1,2 +1,2 @@
 * text=auto
-test-files/** binary
+test-files/** text eol=lf
