@@ -24,7 +24,7 @@ func GetSecurityGroups(cli *Client, appName string, result interface{}) error {
 	}{{
 		Results: result,
 	}}
-	return commonParsedGet(cli, fmt.Sprintf("/search?pageSize=500&q=%s&type=securityGroup", appName), &data)
+	return commonParsedGet(cli, fmt.Sprintf("/search?pageSize=500&q=%s&type=securityGroups", appName), &data)
 }
 
 // Credential contains account status
