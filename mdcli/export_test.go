@@ -1,6 +1,7 @@
 package mdcli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -73,6 +74,8 @@ func TestExport(t *testing.T) {
 
 	got, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
 	require.NoError(t, err)
+	// for windows translate \r\n to \n before comparing
+	got = bytes.ReplaceAll(got, []byte{'\r'}, nil)
 	expected, err := ioutil.ReadFile("../test-files/export/spinnaker.yml.expected")
 	require.NoError(t, err)
 	require.Equal(t, string(expected), string(got))
