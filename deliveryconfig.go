@@ -36,15 +36,15 @@ type DeliveryConfig struct {
 	Name           string
 	Application    string
 	ServiceAccount string `yaml:"serviceAccount"`
-	Artifacts      []DeliveryArtifact
-	Environments   []DeliveryEnvironment
+	Artifacts      []*DeliveryArtifact
+	Environments   []*DeliveryEnvironment
 }
 
 // DeliveryEnvironment contains the resources per environment.
 type DeliveryEnvironment struct {
 	Name      string
 	Locations DeliveryResourceLocations
-	Resources []DeliveryResource
+	Resources []*DeliveryResource
 }
 
 // DeliveryArtifact holds artifact details used for managed delivery
@@ -70,6 +70,7 @@ func (a *DeliveryArtifact) RefName() string {
 	return a.Name
 }
 
+// Equal compares the artifact TagVersionStrategy and VMOptions
 func (a *DeliveryArtifact) Equal(b *DeliveryArtifact) bool {
 	// note we ignore the `Name` property when comparing equality
 	if a.TagVersionStrategy != b.TagVersionStrategy {
@@ -114,6 +115,8 @@ func (r DeliveryResource) CloudProvider() string {
 	return parts[0]
 }
 
+// Match will return true if the ExportableResource matches the
+// Kind, CloudProvider, Account and Name properties
 func (r *DeliveryResource) Match(e *ExportableResource) bool {
 	if e.HasKind(r.Kind) &&
 		r.CloudProvider() == e.CloudProvider &&
@@ -124,6 +127,8 @@ func (r *DeliveryResource) Match(e *ExportableResource) bool {
 	return false
 }
 
+// ResourceType will return the inferred type from the
+// Kind property, `ec2/cluster@v1` will return `cluster`
 func (r *DeliveryResource) ResourceType() string {
 	left := strings.Index(r.Kind, "/")
 	right := strings.LastIndex(r.Kind, "@")
@@ -390,7 +395,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	if err != nil {
 		return false, stacktrace.Propagate(err, "failed to parse content")
 	}
-	deliveryResource := DeliveryResource{}
+	deliveryResource := &DeliveryResource{}
 	err = yaml.Unmarshal(content, &deliveryResource)
 	if err != nil {
 		return false, stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
@@ -407,9 +412,9 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		})
 		p.rawDeliveryConfig["environments"] = environments
 		// update in memory struct in case we look for this environment again later
-		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, DeliveryEnvironment{
+		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, &DeliveryEnvironment{
 			Name:      envName,
-			Resources: []DeliveryResource{deliveryResource},
+			Resources: []*DeliveryResource{deliveryResource},
 		})
 		added = true
 	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
@@ -507,11 +512,12 @@ func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (ad
 		artifact.Reference = fmt.Sprintf("%s-%d", artifact.RefName(), time.Now().UnixNano())
 		updatedRef = artifact.Reference
 	}
-	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, *artifact)
+	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, artifact)
 	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
 	return true, updatedRef
 }
 
+// UpdateArtifactReference will update the artifact reference in the delivery config
 func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updatedRef string) error {
 	if content == nil {
 		return stacktrace.NewError("cannot update nil content for artifact reference")
@@ -522,8 +528,8 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 		return stacktrace.Propagate(err, "Failed to parse resource as yaml to updated reference")
 	}
 	if kind, ok := data["kind"].(string); ok {
-		switch kind {
-		case "titus/cluster@v1":
+		switch {
+		case strings.HasPrefix(kind, "titus/cluster@v1"):
 			// kind: titus/cluster@v1
 			// spec:
 			//   container:
@@ -539,7 +545,7 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 			} else {
 				return stacktrace.NewError("resource for titus/cluster@v1 missing spec property")
 			}
-		case "ec2/cluster@v1":
+		case strings.HasPrefix(kind, "ec2/cluster@v1"):
 			// kind: ec2/cluster@v1
 			// spec:
 			//   imageProvider:

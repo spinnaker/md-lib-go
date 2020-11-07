@@ -10,7 +10,7 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-//DiffOptions allows for optional flags to the Diff command.
+// DiffOptions allows for optional flags to the Diff command.
 type DiffOptions struct {
 	// Brief will only print resources names and indicate the diff status
 	Brief bool

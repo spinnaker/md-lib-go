@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	//DefaultSpinnakerAPIBaseURL is the base url to be used for app spinnaker api calls. It can be set in code
+	// DefaultSpinnakerAPIBaseURL is the base url to be used for app spinnaker api calls. It can be set in code
 	// or overridden with the SPINNAKER_API_BASE_URL environment variable.
 	DefaultSpinnakerAPIBaseURL = os.Getenv("SPINNAKER_API_BASE_URL")
 )

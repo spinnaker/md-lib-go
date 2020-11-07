@@ -311,7 +311,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	for _, art := range delivery.Artifacts {
 		added := false
 		for _, a := range addedArtifacts {
-			if a.Equal(&art) {
+			if a.Equal(art) {
 				added = true
 				break
 			}

@@ -44,6 +44,7 @@ func (r ExportableResource) String() string {
 	return fmt.Sprintf("%s %s [%s/%s]", r.ResourceType, r.Name, r.CloudProvider, r.Account)
 }
 
+// HasKind will return true if the resource matches the provided kind.
 func (r ExportableResource) HasKind(kind string) bool {
 	kindProvider := r.CloudProvider
 	if kindProvider == "aws" {

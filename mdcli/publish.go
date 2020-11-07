@@ -10,6 +10,8 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
+// PublishError is the format of an error message upon publishing a delivery
+// config.
 type PublishError struct {
 	Timestamp int64
 	Status    int64
@@ -19,6 +21,8 @@ type PublishError struct {
 	URL       string
 }
 
+// PublishErrorBody is the embedded error message that will be sent upon
+// publishing a delivery config.
 type PublishErrorBody struct {
 	Message   string
 	Timestamp string
@@ -30,6 +34,7 @@ type PublishErrorBody struct {
 // UnmarshalJSON implementation
 type jsonPublishErrorBody PublishErrorBody
 
+// UnmarshalJSON satisfies the json.Unmarshaller
 func (body *PublishErrorBody) UnmarshalJSON(b []byte) error {
 	// The body will be escaped JSON so first we read the string
 	// out, then attempt to parse the string value as json
