@@ -1,7 +1,6 @@
 package mdcli
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,10 +74,19 @@ func TestExport(t *testing.T) {
 
 	got, err := ioutil.ReadFile(filepath.Join(opts.ConfigDir, opts.ConfigFile))
 	require.NoError(t, err)
-	// for windows translate \r\n to \n before comparing
-	got = bytes.ReplaceAll(got, []byte{'\r'}, nil)
+
 	expected, err := ioutil.ReadFile("../test-files/export/spinnaker.yml.expected")
 	require.NoError(t, err)
-	require.Equal(t, string(expected), string(got))
 
+	require.Equal(t, escapeLines(string(expected)), escapeLines(string(got)))
+
+}
+
+func escapeLines(s string) string {
+	lines := strings.SplitAfter(s, "\n")
+	out := ""
+	for _, line := range lines {
+		out += fmt.Sprintf("%q\n", line)
+	}
+	return out
 }
