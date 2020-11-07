@@ -8,17 +8,21 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestExport(t *testing.T) {
+	var mu sync.Mutex
 	requests := map[string]int{}
 	ts := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
 				requests[fmt.Sprintf("%s %s", r.Method, r.URL.Path)]++
+				mu.Unlock()
 				responsePath := fmt.Sprintf("../test-files/export/responses%s/%s.json", r.URL.Path, r.Method)
 				w.Header().Set("Content-Type", "application/json")
 				if _, err := os.Stat(responsePath); err != nil {
