@@ -12,7 +12,7 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/xlab/treeprint"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // exportOptions are options specifically for the Export Command.

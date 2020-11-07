@@ -26,7 +26,7 @@ func TestPublish(t *testing.T) {
 	opts.ConfigDir = "../test-files/publish"
 	opts.ConfigFile = "spinnaker.yml"
 
-	err := Publish(opts)
+	_, err := Publish(opts)
 	require.NoError(t, err)
 
 	// we expect a single POST to delivery-configs API

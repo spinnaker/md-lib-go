@@ -1,19 +1,13 @@
 ---
-apiVersion: "ec2.spinnaker.netflix.com/v1"
-kind: "cluster"
+kind: "ec2/cluster@v1.1"
 metadata: {}
 spec:
   moniker:
     app: "myapp"
-  imageProvider:
-    reference: "myapp"
+  artifactReference: "myapp"
   deployWith:
+    health: "AUTO"
     strategy: "red-black"
-    rollbackOnFailure: true
-    resizePreviousToZero: false
-    maxServerGroups: 2
-    delayBeforeDisable: "PT0S"
-    delayBeforeScaleDown: "PT0S"
   locations:
     account: "test"
     regions:

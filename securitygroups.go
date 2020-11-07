@@ -27,7 +27,7 @@ type Credential struct {
 	AWSAccount     string `json:"awsAccount"`
 }
 
-// GetCredential populates the credential result nstructure for the spinnaker accound provided.
+// GetCredential populates the credential result structure for the spinnaker account provided.
 // Unless a custom result type is required, *Credential is recommended
 func GetCredential(cli *Client, account string, result interface{}) error {
 	return commonParsedGet(cli, fmt.Sprintf("/credentials/%s", account), result)

@@ -2,57 +2,54 @@ application: myapp
 artifacts:
 - name: myapp
   type: deb
-- name: myteam/myapp-test
+  reference: myapp
+  vmOptions:
+    baseLabel: RELEASE
+    baseOs: bionic
+    regions:
+    - us-east-1
+    storeType: EBS
+- name: myorg/myapp
   type: docker
+  reference: myorg/myapp
+  tagVersionStrategy: branch-job-commit-by-job
 environments:
 - constraints:
   - type: manual-judgement
   name: testing
   notifications: []
   resources:
-  - apiVersion: ec2.spinnaker.netflix.com/v1
-    kind: cluster
+  - kind: ec2/cluster@v1.1
     metadata: {}
     spec:
+      artifactReference: myapp
       dependencies:
         securityGroupNames:
         - myapp
       deployWith:
-        delayBeforeDisable: PT0S
-        delayBeforeScaleDown: PT0S
-        maxServerGroups: 2
-        resizePreviousToZero: false
-        rollbackOnFailure: true
+        health: AUTO
         strategy: red-black
       health:
         terminationPolicies:
         - Default
-      imageProvider:
-        reference: myapp
       locations:
         account: test
         regions:
         - name: us-east-1
       moniker:
         app: myapp
-  - apiVersion: titus.spinnaker.netflix.com/v1
-    kind: cluster
+  - kind: titus/cluster@v1
     metadata: {}
     spec:
       container:
-        image: maapp-test
-        organization: myteam
-        tagVersionStrategy: semver-job-commit-by-semver
+        reference: myorg/myapp
       dependencies:
         securityGroupNames:
         - myapp
       deployWith:
-        delayBeforeDisable: PT0S
-        delayBeforeScaleDown: PT0S
-        maxServerGroups: 2
-        resizePreviousToZero: false
-        rollbackOnFailure: true
+        health: AUTO
         strategy: red-black
+        waitForInstancesUp: PT30M
       locations:
         account: titustest
         regions:
@@ -60,9 +57,7 @@ environments:
         vpc: vpc0
       moniker:
         app: myapp
-      overrides: {}
-  - apiVersion: ec2.spinnaker.netflix.com/v1
-    kind: security-group
+  - kind: ec2/security-group@v1
     metadata: {}
     spec:
       description: Security Group for myapp
@@ -74,5 +69,4 @@ environments:
         vpc: vpc0
       moniker:
         app: myapp
-name: myapp-manifest
 serviceAccount: myteam@example.com

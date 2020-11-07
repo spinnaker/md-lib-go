@@ -40,7 +40,7 @@ func (body *PublishErrorBody) UnmarshalJSON(b []byte) error {
 	return json.Unmarshal([]byte(s), (*jsonPublishErrorBody)(body))
 }
 
-// Publish is a command line interface for publishing a local delivery conifg
+// Publish is a command line interface for publishing a local delivery config
 // to be managed by Spinnaker.
 func Publish(opts *CommandOptions) (int, error) {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)

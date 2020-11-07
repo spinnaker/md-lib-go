@@ -1,0 +1,7 @@
+---
+name: "myorg/myapp"
+reference: "myorg/myapp"
+tagVersionStrategy: "branch-job-commit-by-job"
+type: "docker"
+filteredByReleaseStatus: false
+filteredByPullRequest: false

@@ -1,0 +1,15 @@
+---
+name: "myapp"
+reference: "myapp"
+vmOptions:
+    baseLabel: "RELEASE"
+    baseOs: "bionic"
+    regions:
+    - "us-east-1"
+    storeType: "EBS"
+statuses:
+- "RELEASE"
+type: "deb"
+filteredByPullRequest: false
+filteredByBranch: false
+filteredByReleaseStatus: true

@@ -1,0 +1,61 @@
+name: Build
+on: push
+jobs:
+    compile:
+        name: Compile
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+            go: [ '1.15', '1.14', '1.13' ]
+            os: ['linux-latest', 'macos-latest', 'windows-latest']
+        steps:
+            -
+                uses: actions/checkout@v2
+            -
+                name: Setup go
+                uses: actions/setup-go@v2
+                with:
+                    go-version: ${{ matrix.go }}
+            -
+                name: Compile
+                run: go build -gcflags="-e" ./cmd/spinmd
+                env:
+                    CGO_ENABLED: 0
+
+    test:
+        name: Test
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+            go: [ '1.15', '1.14', '1.13' ]
+            os: ['linux-latest', 'macos-latest', 'windows-latest']
+        steps:
+            -
+                uses: actions/checkout@v2
+            -
+                name: Setup go
+                uses: actions/setup-go@v2
+                with:
+                    go-version: ${{ matrix.go }}
+            -
+                name: Compile
+                run: go test -v ./...
+                env:
+                    CGO_ENABLED: 0
+
+    lint:
+        name: Lint
+        runs-on: linux-latest
+        steps:
+            -
+                uses: actions/checkout@v2
+            -
+                name: Setup go
+                uses: actions/setup-go@v2
+                with:
+                    go-version: "^1.15.0"
+            -
+                name: Install Linter
+                run: go get -v -u github.com/golangci/golangci-lint/cmd/golangci-lint
+                env:
+                    GO111MODULE: off

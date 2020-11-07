@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 	"github.com/spinnaker/md-lib-go/mdcli"
 	"github.com/spinnaker/spin/cmd/gateclient"
 	"github.com/spinnaker/spin/config"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/util/homedir"
 )
 
@@ -30,7 +31,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Unable to read %s: %s", configFile, err)
 		}
-		err = yaml.UnmarshalStrict([]byte(os.ExpandEnv(string(yamlFile))), &cfg)
+		yamlIn := bytes.NewReader([]byte(os.ExpandEnv(string(yamlFile))))
+		dec := yaml.NewDecoder(yamlIn)
+		dec.KnownFields(true)
+		err = dec.Decode(&cfg)
 		if err != nil {
 			log.Fatalf("Failed to parse %s as YAML: %s", configFile, err)
 		}

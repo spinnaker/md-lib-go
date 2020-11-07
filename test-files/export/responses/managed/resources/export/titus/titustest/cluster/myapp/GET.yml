@@ -1,27 +1,20 @@
 ---
-apiVersion: "titus.spinnaker.netflix.com/v1"
-kind: "cluster"
+kind: "titus/cluster@v1"
 metadata: {}
 spec:
   moniker:
     app: "myapp"
   deployWith:
+    health: "AUTO"
+    waitForInstancesUp: "PT30M"
     strategy: "red-black"
-    rollbackOnFailure: true
-    resizePreviousToZero: false
-    maxServerGroups: 2
-    delayBeforeDisable: "PT0S"
-    delayBeforeScaleDown: "PT0S"
   locations:
     account: "titustest"
     vpc: "vpc0"
     regions:
     - name: "us-east-1"
-  overrides: {}
   container:
-    organization: "myteam"
-    image: "maapp-test"
-    tagVersionStrategy: "semver-job-commit-by-semver"
+    reference: "myorg/myapp"
   dependencies:
     securityGroupNames:
     - "myapp"
