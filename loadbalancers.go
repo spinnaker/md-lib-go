@@ -18,13 +18,14 @@ type LoadBalancerServerGroup struct {
 // will be populated if it is an ALB.  ServerGroups will be populated
 // if it is an ELB.
 type LoadBalancer struct {
-	Name           string                    `json:"name"`
-	Account        string                    `json:"account"`
-	Region         string                    `json:"region"`
-	Type           string                    `json:"type"`
-	SecurityGroups []string                  `json:"securityGroups"`
-	ServerGroups   []LoadBalancerServerGroup `json:"serverGroups"`
-	TargetGroups   []LoadBalancerTargetGroup `json:"targetGroups"`
+	Name             string                    `json:"name"`
+	Account          string                    `json:"account"`
+	Region           string                    `json:"region"`
+	Type             string                    `json:"type"`
+	LoadBalancerType string                    `json:"loadBalancerType"`
+	SecurityGroups   []string                  `json:"securityGroups"`
+	ServerGroups     []LoadBalancerServerGroup `json:"serverGroups"`
+	TargetGroups     []LoadBalancerTargetGroup `json:"targetGroups"`
 }
 
 // GetLoadBalancers populates the load balancers result structure for spinnaker application appName.

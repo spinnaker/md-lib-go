@@ -154,6 +154,9 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		var option string
 		if mdProcessor.ResourceExists(resource) {
 			option = fmt.Sprintf("Update %s", resource)
+		} else if resource.ResourceType == mdlib.NetworkLoadBalancerResourceType {
+			opts.Logger.Printf("WARNING cannot export %s", resource)
+			continue
 		} else {
 			option = fmt.Sprintf("Export %s", resource)
 			defaults = append(defaults, option)

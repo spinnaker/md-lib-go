@@ -13,10 +13,14 @@ import (
 const (
 	// ClusterResourceType is the keyword used to classify the resource type for clusters.
 	ClusterResourceType = "cluster"
+
 	// LoadBalancerResourceType is the keyword used to classify the resource type for classic elastic load balancers.
 	LoadBalancerResourceType = "classic-load-balancer"
 	// ApplicationLoadBalancerResourceType is the keyword used to classify the resource type for an application load balancer.
 	ApplicationLoadBalancerResourceType = "application-load-balancer"
+	// NetworkLoadBalancerResourceType is the keyword to classify the resource type for an network load balancer
+	NetworkLoadBalancerResourceType = "network-load-balancer"
+
 	// SecurityGroupResourceType is the keyword used to classify the resource type for security groups.
 	SecurityGroupResourceType = "security-group"
 
@@ -145,7 +149,11 @@ func ExportableApplicationResources(appData *ApplicationResources) []*Exportable
 	for _, lb := range appData.LoadBalancers {
 		resourceType := LoadBalancerResourceType
 		if len(lb.TargetGroups) > 0 {
-			resourceType = ApplicationLoadBalancerResourceType
+			if lb.LoadBalancerType == "network" {
+				resourceType = NetworkLoadBalancerResourceType
+			} else {
+				resourceType = ApplicationLoadBalancerResourceType
+			}
 		}
 
 		// only export things by default that look like the belong to this app
