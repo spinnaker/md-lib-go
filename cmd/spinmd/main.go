@@ -3,13 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
@@ -86,12 +89,13 @@ func main() {
 		return httpClient.Do(req)
 	}
 
+	verbose := false
 	globalFlags := flag.NewFlagSet("", flag.ContinueOnError)
 
 	globalFlags.StringVar(&opts.ConfigDir, "dir", mdlib.DefaultDeliveryConfigDirName, "directory for delivery config file")
 	globalFlags.StringVar(&opts.ConfigFile, "file", mdlib.DefaultDeliveryConfigFileName, "delivery config file name")
 	globalFlags.StringVar(&opts.BaseURL, "baseurl", cfg.Gate.Endpoint, "base URL to reach spinnaker api")
-
+	globalFlags.BoolVar(&verbose, "v", false, "verbose logging for rest api requests")
 	globalFlags.Parse(os.Args[1:])
 	args := globalFlags.Args()
 
@@ -100,6 +104,27 @@ func main() {
 		fmt.Printf("Flags:\n")
 		globalFlags.PrintDefaults()
 		return
+	}
+
+	if verbose {
+		doer := opts.HTTPClient
+		opts.HTTPClient = func(req *http.Request) (resp *http.Response, err error) {
+			out, _ := httputil.DumpRequest(req, true)
+			log.Printf(string(out))
+			defer func() {
+				out, _ := httputil.DumpResponse(resp, true)
+				if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+					out, _ = ioutil.ReadAll(resp.Body)
+					var data interface{}
+					json.Unmarshal(out, &data)
+					buf := bytes.NewBuffer(out)
+					resp.Body = ioutil.NopCloser(buf)
+					out, _ = json.MarshalIndent(data, "", "  ")
+				}
+				log.Printf(string(out))
+			}()
+			return doer(req)
+		}
 	}
 
 	exitCode := 0
