@@ -152,12 +152,13 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	optionsIndexByName := map[string]int{}
 	for ix, resource := range exportable {
 		var option string
-		if mdProcessor.ResourceExists(resource) {
+		switch {
+		case mdProcessor.ResourceExists(resource):
 			option = fmt.Sprintf("Update %s", resource)
-		} else if resource.ResourceType == mdlib.NetworkLoadBalancerResourceType {
+		case resource.ResourceType == mdlib.NetworkLoadBalancerResourceType:
 			opts.Logger.Printf("WARNING cannot export %s", resource)
 			continue
-		} else {
+		default:
 			option = fmt.Sprintf("Export %s", resource)
 			defaults = append(defaults, option)
 		}
