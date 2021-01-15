@@ -336,6 +336,21 @@ func (p *DeliveryConfigProcessor) Save() error {
 	if err != nil {
 		return stacktrace.Propagate(err, "")
 	}
+
+	// convert rawDeliveryConfig to yaml.Node so we can do custom sorting
+	root := yaml.Node{}
+	err = p.yamlUnmarshal(output, &root)
+	if err != nil {
+		return stacktrace.Propagate(err, "")
+	}
+	// then walk yaml.Node and sort fields to have high-priority fields on top
+	configKeySort(&root)
+
+	output, err = p.yamlMarshal(&root)
+	if err != nil {
+		return stacktrace.Propagate(err, "")
+	}
+
 	p.content = output
 
 	err = os.MkdirAll(p.dirName, 0755)
@@ -351,6 +366,62 @@ func (p *DeliveryConfigProcessor) Save() error {
 		return stacktrace.Propagate(err, "")
 	}
 	return nil
+}
+
+// ConfigKeySortPriority is used to sort the maps in the delivery config yaml
+// document so "important" fields appear near the top
+var ConfigKeySortPriority = []string{
+	"kind",
+	"name",
+	"type",
+	"moniker",
+	"artifactReference",
+	"container",
+	"locations",
+	"application",
+	"serviceAccount",
+	"artifacts",
+	"environments",
+}
+
+func configKeySort(node *yaml.Node) {
+	switch node.Kind {
+	case yaml.MappingNode:
+		start := 0
+		for _, key := range ConfigKeySortPriority {
+			for i := start; i < len(node.Content); i += 2 {
+				if node.Content[i].Value == key {
+					if i == start {
+						start += 2
+						break
+					}
+					node.Content[start], node.Content[start+1], node.Content[i], node.Content[i+1] = node.Content[i], node.Content[i+1], node.Content[start], node.Content[start+1]
+					start += 2
+					break
+				}
+			}
+		}
+		// crude bubble sort for the remaining non-prioritized map keys
+		swapped := true
+		for swapped {
+			swapped = false
+			for i := start + 2; i < len(node.Content); i += 2 {
+				if node.Content[i-2].Value > node.Content[i].Value {
+					node.Content[i-2], node.Content[i-1], node.Content[i], node.Content[i+1] = node.Content[i], node.Content[i+1], node.Content[i-2], node.Content[i-1]
+					swapped = true
+				}
+			}
+		}
+		for i := 0; i < len(node.Content); i += 2 {
+			// recursive sort map values
+			configKeySort(node.Content[i+1])
+		}
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, node := range node.Content {
+			configKeySort(node)
+		}
+	}
+
 }
 
 // AllEnvironments will return a list of the names of all the environments in the delivery config as well
