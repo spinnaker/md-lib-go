@@ -1,4 +1,5 @@
 application: myapp
+serviceAccount: myteam@example.com
 artifacts:
 - name: myapp
   type: deb
@@ -14,15 +15,21 @@ artifacts:
   reference: myorg/myapp
   tagVersionStrategy: branch-job-commit-by-job
 environments:
-- constraints:
+- name: testing
+  constraints:
   - type: manual-judgement
-  name: testing
   notifications: []
   resources:
   - kind: ec2/cluster@v1.1
     metadata: {}
     spec:
+      moniker:
+        app: myapp
       artifactReference: myapp
+      locations:
+        account: test
+        regions:
+        - name: us-east-1
       dependencies:
         securityGroupNames:
         - myapp
@@ -32,17 +39,18 @@ environments:
       health:
         terminationPolicies:
         - Default
-      locations:
-        account: test
-        regions:
-        - name: us-east-1
-      moniker:
-        app: myapp
   - kind: titus/cluster@v1
     metadata: {}
     spec:
+      moniker:
+        app: myapp
       container:
         reference: myorg/myapp
+      locations:
+        account: titustest
+        regions:
+        - name: us-east-1
+        vpc: vpc0
       dependencies:
         securityGroupNames:
         - myapp
@@ -50,36 +58,28 @@ environments:
         health: AUTO
         strategy: red-black
         waitForInstancesUp: PT30M
-      locations:
-        account: titustest
-        regions:
-        - name: us-east-1
-        vpc: vpc0
-      moniker:
-        app: myapp
   - kind: ec2/security-group@v1
     metadata: {}
     spec:
-      description: Security Group for myapp
-      inboundRules: []
+      moniker:
+        app: myapp
       locations:
         account: test
         regions:
         - name: us-east-1
         vpc: vpc0
-      moniker:
-        app: myapp
+      description: Security Group for myapp
+      inboundRules: []
   - kind: ec2/security-group@v1
     metadata: {}
     spec:
-      description: Security Group for myapp rds
-      inboundRules: []
+      moniker:
+        app: myapp
+        stack: rds
       locations:
         account: dbs
         regions:
         - name: us-west-2
         vpc: vpc0
-      moniker:
-        app: myapp
-        stack: rds
-serviceAccount: myteam@example.com
+      description: Security Group for myapp rds
+      inboundRules: []
