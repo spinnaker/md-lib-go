@@ -11,7 +11,7 @@ RUN --mount=type=bind,target=/go/src/github.com/spinnaker/md-lib-go,ro \
     --mount=type=cache,target=/go/pkg \
     go test -v ./...
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /root/go/bin v1.32.2
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /root/go/bin v1.33.0
 RUN --mount=type=bind,target=/go/src/github.com/spinnaker/md-lib-go,ro \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
