@@ -59,6 +59,14 @@ type DeliveryArtifact struct {
 		Regions   []string `json:"regions,omitempty" yaml:"regions,omitempty"`
 		StoreType string   `json:"storeType,omitempty" yaml:"storeType,omitempty"`
 	} `json:"vmOptions,omitempty" yaml:"vmOptions,omitempty"`
+	From struct {
+		Branch struct {
+			Name       string `json:"name,omitempty" yaml:"name,omitempty"`
+			StartsWith string `json:"startsWith,omitempty" yaml:"startsWith,omitempty"`
+			Regex      string `json:"regex,omitempty" yaml:"regex,omitempty"`
+		} `json:"branch,omitempty" yaml:"branch,omitempty"`
+		PullRequestOnly bool `json:"pullRequestOnly,omitempty" yaml:"pullRequestOnly,omitempty"`
+	} `json:"from,omitempty" yaml:"from,omitempty"`
 }
 
 // RefName returns the Reference value for comparisons.  it will use the
