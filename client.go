@@ -101,7 +101,7 @@ func commonRequest(cli *Client, method string, u string, body requestBody) ([]by
 		return nil, stacktrace.Propagate(err, "failed to read response body from %s", u)
 	}
 
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		err := ErrorUnexpectedResponse{
 			StatusCode: resp.StatusCode,
 			URL:        u,
