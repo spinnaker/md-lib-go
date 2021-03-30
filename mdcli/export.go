@@ -20,6 +20,7 @@ type exportOptions struct {
 	all                    bool
 	envName                string
 	onlyAccount            string
+	clusters               []string
 	customResourceScanner  func(*mdlib.ApplicationResources) []*mdlib.ExportableResource
 	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)
 	constraintsProvider    func(envName string, current mdlib.DeliveryConfig) []interface{}
@@ -85,6 +86,20 @@ func ConstraintsProvider(cp func(envName string, current mdlib.DeliveryConfig) [
 func NotificationsProvider(np func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
 	return func(o *exportOptions) {
 		o.notificationsProvider = np
+	}
+}
+
+// SetEnvironment sets the environment name
+func SetEnvironment(envName string) ExportOption {
+	return func(o *exportOptions) {
+		o.envName = envName
+	}
+}
+
+// SetClusters sets the clusters to export
+func SetClusters(clusters []string) ExportOption {
+	return func(o *exportOptions) {
+		o.clusters = clusters
 	}
 }
 
@@ -167,9 +182,20 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	}
 
 	selected := []string{}
-	if exportOpts.all {
+	switch {
+	case exportOpts.all:
 		selected = options
-	} else {
+	case exportOpts.clusters != nil:
+		for ix, resource := range exportable {
+			if resource.ResourceType == "cluster" {
+				for _, cluster := range exportOpts.clusters {
+					if cluster == resource.Name {
+						selected = append(selected, options[ix])
+					}
+				}
+			}
+		}
+	default:
 		_, h, err := terminal.GetSize(int(opts.Stdout.Fd()))
 		if err != nil {
 			return 1, err
