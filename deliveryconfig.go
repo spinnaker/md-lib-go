@@ -212,6 +212,9 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 		notificationsProvider: func(_ string, current DeliveryConfig) []interface{} {
 			return []interface{}{}
 		},
+		verifyWithProvider: func(_ string, current DeliveryConfig) []interface{} {
+			return []interface{}{}
+		},
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -499,7 +502,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			"constraints":   p.constraintsProvider(envName, p.deliveryConfig),
 			"notifications": p.notificationsProvider(envName, p.deliveryConfig),
 			"resources":     []interface{}{data},
-			"verifyWith":	 p.verifyWithProvider(envName, p.deliveryConfig),
+			"verifyWith":    p.verifyWithProvider(envName, p.deliveryConfig),
 		})
 		p.rawDeliveryConfig["environments"] = environments
 		// update in memory struct in case we look for this environment again later
