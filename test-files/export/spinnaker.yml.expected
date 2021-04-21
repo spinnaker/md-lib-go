@@ -83,3 +83,4 @@ environments:
         vpc: vpc0
       description: Security Group for myapp rds
       inboundRules: []
+  verifyWith: []

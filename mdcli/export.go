@@ -25,6 +25,7 @@ type exportOptions struct {
 	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)
 	constraintsProvider    func(envName string, current mdlib.DeliveryConfig) []interface{}
 	notificationsProvider  func(envName string, current mdlib.DeliveryConfig) []interface{}
+	verifyWithProvider     func(envName string, current mdlib.DeliveryConfig) []interface{}
 }
 
 // ExportOption is an interface to provide custom overrides for the Export command.
@@ -86,6 +87,14 @@ func ConstraintsProvider(cp func(envName string, current mdlib.DeliveryConfig) [
 func NotificationsProvider(np func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
 	return func(o *exportOptions) {
 		o.notificationsProvider = np
+	}
+}
+
+// VerifyWithProvider is an override to Export that can be used to customizing how a default
+// verifyWith configuration for newly created environments.
+func VerifyWithProvider(vp func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
+	return func(o *exportOptions) {
+		o.verifyWithProvider = vp
 	}
 }
 
@@ -151,6 +160,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		mdlib.WithServiceAccount(serviceAccount),
 		mdlib.WithConstraintsProvider(exportOpts.constraintsProvider),
 		mdlib.WithNotificationsProvider(exportOpts.notificationsProvider),
+		mdlib.WithVerifyProvider(exportOpts.verifyWithProvider),
 	)
 
 	err = mdProcessor.Load()
@@ -356,6 +366,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	envNode := tree.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("blue+b"), "environments", ansi.Reset))
 	for _, env := range delivery.Environments {
 		envBranch := envNode.AddBranch(fmt.Sprintf("%s%s%s", ansi.ColorCode("default+hb"), env.Name, ansi.Reset))
+
 		// collect all the types so we can print the resources in order by type
 		uniqTypes := map[string]struct{}{}
 		for _, resource := range env.Resources {

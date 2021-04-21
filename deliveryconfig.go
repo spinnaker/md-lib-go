@@ -193,6 +193,7 @@ type DeliveryConfigProcessor struct {
 	yamlUnmarshal         func([]byte, interface{}) error
 	constraintsProvider   func(envName string, current DeliveryConfig) []interface{}
 	notificationsProvider func(envName string, current DeliveryConfig) []interface{}
+	verifyWithProvider    func(envName string, current DeliveryConfig) []interface{}
 }
 
 // ProcessorOption is the interface to provide variadic options to NewDeliveryConfigProcessor
@@ -209,6 +210,9 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 			return []interface{}{DefaultEnvironmentConstraint}
 		},
 		notificationsProvider: func(_ string, current DeliveryConfig) []interface{} {
+			return []interface{}{}
+		},
+		verifyWithProvider: func(_ string, current DeliveryConfig) []interface{} {
 			return []interface{}{}
 		},
 	}
@@ -285,6 +289,16 @@ func WithNotificationsProvider(np func(envName string, current DeliveryConfig) [
 	return func(p *DeliveryConfigProcessor) {
 		if np != nil {
 			p.notificationsProvider = np
+		}
+	}
+}
+
+// WithVerifyProvider is a ProcessorOption to allow customizing how a
+// environment verification is generated
+func WithVerifyProvider(vp func(envName string, current DeliveryConfig) []interface{}) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		if vp != nil {
+			p.verifyWithProvider = vp
 		}
 	}
 }
@@ -488,6 +502,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			"constraints":   p.constraintsProvider(envName, p.deliveryConfig),
 			"notifications": p.notificationsProvider(envName, p.deliveryConfig),
 			"resources":     []interface{}{data},
+			"verifyWith":    p.verifyWithProvider(envName, p.deliveryConfig),
 		})
 		p.rawDeliveryConfig["environments"] = environments
 		// update in memory struct in case we look for this environment again later
@@ -517,6 +532,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			environments[envIx] = env
 			p.rawDeliveryConfig["environments"] = environments
 		}
+		env["verifyWith"] = p.verifyWithProvider(envName, p.deliveryConfig) // overwrite previous config
 	}
 	return added, nil
 }
