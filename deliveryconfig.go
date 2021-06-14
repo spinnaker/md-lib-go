@@ -194,6 +194,7 @@ type DeliveryConfigProcessor struct {
 	constraintsProvider   func(envName string, current DeliveryConfig) []interface{}
 	notificationsProvider func(envName string, current DeliveryConfig) []interface{}
 	verifyWithProvider    func(envName string, current DeliveryConfig) []interface{}
+	postDeployProvider    func(envName string, current DeliveryConfig) []interface{}
 }
 
 // ProcessorOption is the interface to provide variadic options to NewDeliveryConfigProcessor
@@ -213,6 +214,9 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 			return []interface{}{}
 		},
 		verifyWithProvider: func(_ string, current DeliveryConfig) []interface{} {
+			return []interface{}{}
+		},
+		postDeployProvider: func(_ string, current DeliveryConfig) []interface{} {
 			return []interface{}{}
 		},
 	}
@@ -299,6 +303,16 @@ func WithVerifyProvider(vp func(envName string, current DeliveryConfig) []interf
 	return func(p *DeliveryConfigProcessor) {
 		if vp != nil {
 			p.verifyWithProvider = vp
+		}
+	}
+}
+
+// WithPostDeployProvider is a ProcessorOption to allow customizing how a
+// post deploy action is generated
+func WithPostDeployProvider(vp func(envName string, current DeliveryConfig) []interface{}) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		if vp != nil {
+			p.postDeployProvider = vp
 		}
 	}
 }
@@ -503,6 +517,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			"notifications": p.notificationsProvider(envName, p.deliveryConfig),
 			"resources":     []interface{}{data},
 			"verifyWith":    p.verifyWithProvider(envName, p.deliveryConfig),
+			"postDeploy":    p.postDeployProvider(envName, p.deliveryConfig),
 		})
 		p.rawDeliveryConfig["environments"] = environments
 		// update in memory struct in case we look for this environment again later
@@ -533,6 +548,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			p.rawDeliveryConfig["environments"] = environments
 		}
 		env["verifyWith"] = p.verifyWithProvider(envName, p.deliveryConfig) // overwrite previous config
+		env["postDeploy"] = p.postDeployProvider(envName, p.deliveryConfig) // overwrite previous config
 	}
 	return added, nil
 }
