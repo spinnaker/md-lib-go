@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coryb/walky"
 	"github.com/palantir/stacktrace"
 	"gopkg.in/yaml.v3"
 )
@@ -107,7 +108,7 @@ func (r DeliveryResource) Account() string {
 	return r.Spec.Locations.Account
 }
 
-// CloudProvider retuurns the cloud provider for a resource.  Currently it
+// CloudProvider returns the cloud provider for a resource.  Currently it
 // only return titus or aws
 func (r DeliveryResource) CloudProvider() string {
 	// Kind is like ec2/cluster@v1 or titus/cluster@v1
@@ -186,7 +187,7 @@ type DeliveryConfigProcessor struct {
 	serviceAccount        string
 	fileName              string
 	dirName               string
-	rawDeliveryConfig     map[string]interface{}
+	rawDeliveryConfig     *yaml.Node
 	deliveryConfig        DeliveryConfig
 	content               []byte
 	yamlMarshal           func(interface{}) ([]byte, error)
@@ -319,12 +320,16 @@ func WithPostDeployProvider(vp func(envName string, current DeliveryConfig) []in
 
 // Load will load the delivery config files from disk.
 func (p *DeliveryConfigProcessor) Load() error {
-	p.rawDeliveryConfig = map[string]interface{}{}
 	p.deliveryConfig = DeliveryConfig{}
 
 	deliveryFile := filepath.Join(p.dirName, p.fileName)
 	if _, err := os.Stat(deliveryFile); err != nil && os.IsNotExist(err) {
 		// file does not exist, skip
+		p.rawDeliveryConfig = walky.NewDocumentNode()
+		p.rawDeliveryConfig.Content = append(
+			p.rawDeliveryConfig.Content,
+			walky.NewMappingNode(),
+		)
 		return nil
 	} else if err != nil {
 		return stacktrace.Propagate(err, "failed to stat %s", deliveryFile)
@@ -335,7 +340,8 @@ func (p *DeliveryConfigProcessor) Load() error {
 		return stacktrace.Propagate(err, "failed to read %s", deliveryFile)
 	}
 
-	err = yaml.Unmarshal(p.content, &p.rawDeliveryConfig)
+	p.rawDeliveryConfig = &yaml.Node{}
+	err = yaml.Unmarshal(p.content, p.rawDeliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(
 			ErrorInvalidContent{Content: p.content, ParseError: err},
@@ -356,19 +362,39 @@ func (p *DeliveryConfigProcessor) Load() error {
 // Save will serialize the delivery config to disk.
 func (p *DeliveryConfigProcessor) Save() error {
 	log.Printf("Saving")
-	if _, ok := p.rawDeliveryConfig["application"]; !ok && p.appName != "" {
-		p.rawDeliveryConfig["application"] = p.appName
+	if ok := walky.HasKey(p.rawDeliveryConfig, "application"); !ok && p.appName != "" {
+		keyNode, _ := walky.ToNode("application")
+		appNode, _ := walky.ToNode(p.appName)
+		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, appNode)
 	}
-	if _, ok := p.rawDeliveryConfig["serviceAccount"]; !ok && p.serviceAccount != "" {
-		p.rawDeliveryConfig["serviceAccount"] = p.serviceAccount
+	if ok := walky.HasKey(p.rawDeliveryConfig, "serviceAccount"); !ok && p.serviceAccount != "" {
+		keyNode, _ := walky.ToNode("serviceAccount")
+		serviceAccountNode, _ := walky.ToNode(p.serviceAccount)
+		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, serviceAccountNode)
 	}
 	// ensure if no artifacts are present then we set it to an empty list, it is
 	// required by the API
-	if _, ok := p.rawDeliveryConfig["artifacts"]; !ok {
-		p.rawDeliveryConfig["artifacts"] = []interface{}{}
+	if !walky.HasKey(p.rawDeliveryConfig, "artifacts") {
+		keyNode, _ := walky.ToNode("artifacts")
+		valNode := walky.NewSequenceNode()
+		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, valNode)
 	}
 
-	output, err := p.yamlMarshal(&p.rawDeliveryConfig)
+	environmentsNode := walky.GetKey(p.rawDeliveryConfig, "environments")
+	for envIx, envNode := range environmentsNode.Content {
+		resourcesNode := walky.GetKey(envNode, "resources")
+		if resourcesNode != nil {
+			for ix, resourceNode := range resourcesNode.Content {
+				kindNode := walky.GetKey(resourceNode, "kind")
+				if kindNode != nil {
+					resource := p.deliveryConfig.Environments[envIx].Resources[ix]
+					kindNode.LineComment = fmt.Sprintf("%s/%s", resource.Spec.Moniker.String(), resource.Spec.Locations.Account)
+				}
+			}
+		}
+	}
+
+	output, err := p.yamlMarshal(p.rawDeliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(err, "")
 	}
@@ -509,9 +535,15 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 	}
 
 	envIx := p.findEnvIndex(envName)
-	if environments, ok := p.rawDeliveryConfig["environments"].([]interface{}); !ok || envIx < 0 {
+	envsNode := walky.GetKey(p.rawDeliveryConfig, "environments")
+
+	if envsNode == nil || envIx < 0 {
 		// new environment
-		environments = append(environments, map[string]interface{}{
+		keyNode, _ := walky.ToNode("environments")
+		if envsNode == nil {
+			envsNode = walky.NewSequenceNode()
+		}
+		newEnvNode, err := walky.ToNode(map[string]interface{}{
 			"name":          envName,
 			"constraints":   p.constraintsProvider(envName, p.deliveryConfig),
 			"notifications": p.notificationsProvider(envName, p.deliveryConfig),
@@ -519,36 +551,76 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			"verifyWith":    p.verifyWithProvider(envName, p.deliveryConfig),
 			"postDeploy":    p.postDeployProvider(envName, p.deliveryConfig),
 		})
-		p.rawDeliveryConfig["environments"] = environments
+		if err != nil {
+			return false, stacktrace.Propagate(err, "")
+		}
+		err = walky.AppendNode(envsNode, newEnvNode)
+		if err != nil {
+			return false, stacktrace.Propagate(err, "")
+		}
+		err = walky.AssignMapNode(p.rawDeliveryConfig, keyNode, envsNode)
+		if err != nil {
+			return false, stacktrace.Propagate(err, "")
+		}
 		// update in memory struct in case we look for this environment again later
 		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, &DeliveryEnvironment{
 			Name:      envName,
 			Resources: []*DeliveryResource{deliveryResource},
 		})
 		added = true
-	} else if env, ok := environments[envIx].(map[string]interface{}); ok {
-		if _, ok := env["constraints"].([]interface{}); !ok {
-			env["constraints"] = p.constraintsProvider(envName, p.deliveryConfig)
+	} else if len(envsNode.Content) > envIx {
+		envNode := envsNode.Content[envIx]
+		if !walky.HasKey(envNode, "constraints") {
+			keyNode, _ := walky.ToNode("constraints")
+			valNode, err := walky.ToNode(p.constraintsProvider(envName, p.deliveryConfig))
+			if err != nil {
+				return false, stacktrace.Propagate(err, "")
+			}
+			err = walky.AssignMapNode(envNode, keyNode, valNode)
+			if err != nil {
+				return false, stacktrace.Propagate(err, "")
+			}
 		}
-		if _, ok := env["notifications"].([]interface{}); !ok {
-			env["notifications"] = p.notificationsProvider(envName, p.deliveryConfig)
+		if !walky.HasKey(envNode, "notifications") {
+			keyNode, _ := walky.ToNode("notifications")
+			valNode, err := walky.ToNode(p.notificationsProvider(envName, p.deliveryConfig))
+			if err != nil {
+				return false, stacktrace.Propagate(err, "")
+			}
+			err = walky.AssignMapNode(envNode, keyNode, valNode)
+			if err != nil {
+				return false, stacktrace.Propagate(err, "")
+			}
 		}
-		if resources, ok := env["resources"].([]interface{}); ok {
+		resourcesNode := walky.GetKey(envNode, "resources")
+		if resourcesNode != nil {
 			resourceIx := p.findResourceIndex(resource, envIx)
+			dataNode, err := walky.ToNode(data)
+			if err != nil {
+				return false, stacktrace.Propagate(err, "")
+			}
 			if resourceIx < 0 {
 				p.deliveryConfig.Environments[envIx].Resources = append(p.deliveryConfig.Environments[envIx].Resources, deliveryResource)
-				resources = append(resources, data)
+				walky.AppendNode(resourcesNode, dataNode)
 				added = true
 			} else {
 				p.deliveryConfig.Environments[envIx].Resources[resourceIx] = deliveryResource
-				resources[resourceIx] = data
+				resourcesNode.Content[resourceIx] = dataNode
 			}
-			env["resources"] = resources
-			environments[envIx] = env
-			p.rawDeliveryConfig["environments"] = environments
 		}
-		env["verifyWith"] = p.verifyWithProvider(envName, p.deliveryConfig) // overwrite previous config
-		env["postDeploy"] = p.postDeployProvider(envName, p.deliveryConfig) // overwrite previous config
+		keyNode, _ := walky.ToNode("verifyWith")
+		veryWithNode, err := walky.ToNode(p.verifyWithProvider(envName, p.deliveryConfig))
+		if err != nil {
+			return false, stacktrace.Propagate(err, "")
+		}
+		walky.AssignMapNode(envNode, keyNode, veryWithNode) // overwrite previous config
+
+		keyNode, _ = walky.ToNode("postDeploy")
+		postDeployNode, err := walky.ToNode(p.postDeployProvider(envName, p.deliveryConfig))
+		if err != nil {
+			return false, stacktrace.Propagate(err, "")
+		}
+		walky.AssignMapNode(envNode, keyNode, postDeployNode) // overwrite previous config
 	}
 	return added, nil
 }
@@ -624,7 +696,14 @@ func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (ad
 		updatedRef = artifact.Reference
 	}
 	p.deliveryConfig.Artifacts = append(p.deliveryConfig.Artifacts, artifact)
-	p.rawDeliveryConfig["artifacts"] = p.deliveryConfig.Artifacts
+	artifactsNode := walky.GetKey(p.rawDeliveryConfig, "artifacts")
+	if artifactsNode == nil {
+		artifactsNode = walky.NewSequenceNode()
+		keyNode, _ := walky.ToNode("artifacts")
+		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, artifactsNode)
+	}
+	artifactNode, _ := walky.ToNode(artifact)
+	walky.AppendNode(artifactsNode, artifactNode)
 	return true, updatedRef
 }
 
@@ -703,7 +782,17 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 		}
 	}
 
-	encoded, err := json.Marshal(&p.rawDeliveryConfig)
+	yamlContent, err := p.yamlMarshal(p.rawDeliveryConfig)
+	if err != nil {
+		return stacktrace.Propagate(err, "")
+	}
+	plainDeliveryConfig := map[string]interface{}{}
+	err = p.yamlUnmarshal(yamlContent, &plainDeliveryConfig)
+	if err != nil {
+		return stacktrace.Propagate(err, "")
+	}
+
+	encoded, err := json.Marshal(&plainDeliveryConfig)
 	if err != nil {
 		return stacktrace.Propagate(err, "Failed to serialized delivery config")
 	}
