@@ -1,87 +1,87 @@
 application: myapp
 serviceAccount: myteam@example.com
 artifacts:
-- name: myapp
-  type: deb
-  reference: myapp
-  vmOptions:
-    baseLabel: RELEASE
-    baseOs: bionic
-    regions:
-    - us-east-1
-    storeType: EBS
-- name: myorg/myapp
-  type: docker
-  reference: myorg/myapp
-  tagVersionStrategy: branch-job-commit-by-job
+  - name: myapp
+    type: deb
+    reference: myapp
+    vmOptions:
+      baseLabel: RELEASE
+      baseOs: bionic
+      regions:
+        - us-east-1
+      storeType: EBS
+  - name: myorg/myapp
+    type: docker
+    reference: myorg/myapp
+    tagVersionStrategy: branch-job-commit-by-job
 environments:
-- name: testing
-  constraints:
-  - type: manual-judgement
-  notifications: []
-  postDeploy: []
-  resources:
-  - kind: ec2/cluster@v1.1
-    metadata: {}
-    spec:
-      moniker:
-        app: myapp
-      artifactReference: myapp
-      locations:
-        account: test
-        regions:
-        - name: us-east-1
-      dependencies:
-        securityGroupNames:
-        - myapp
-      deployWith:
-        health: AUTO
-        strategy: red-black
-      health:
-        terminationPolicies:
-        - Default
-  - kind: titus/cluster@v1
-    metadata: {}
-    spec:
-      moniker:
-        app: myapp
-      container:
-        reference: myorg/myapp
-      locations:
-        account: titustest
-        regions:
-        - name: us-east-1
-        vpc: vpc0
-      dependencies:
-        securityGroupNames:
-        - myapp
-      deployWith:
-        health: AUTO
-        strategy: red-black
-        waitForInstancesUp: PT30M
-  - kind: ec2/security-group@v1
-    metadata: {}
-    spec:
-      moniker:
-        app: myapp
-      locations:
-        account: test
-        regions:
-        - name: us-east-1
-        vpc: vpc0
-      description: Security Group for myapp
-      inboundRules: []
-  - kind: ec2/security-group@v1
-    metadata: {}
-    spec:
-      moniker:
-        app: myapp
-        stack: rds
-      locations:
-        account: dbs
-        regions:
-        - name: us-west-2
-        vpc: vpc0
-      description: Security Group for myapp rds
-      inboundRules: []
-  verifyWith: []
+  - name: testing
+    constraints:
+      - type: manual-judgement
+    notifications: []
+    postDeploy: []
+    resources:
+      - kind: ec2/cluster@v1.1 # myapp/test
+        metadata: {}
+        spec:
+          moniker:
+            app: myapp
+          artifactReference: myapp
+          locations:
+            account: test
+            regions:
+              - name: us-east-1
+          dependencies:
+            securityGroupNames:
+              - myapp
+          deployWith:
+            health: AUTO
+            strategy: red-black
+          health:
+            terminationPolicies:
+              - Default
+      - kind: titus/cluster@v1 # myapp/titustest
+        metadata: {}
+        spec:
+          moniker:
+            app: myapp
+          container:
+            reference: myorg/myapp
+          locations:
+            account: titustest
+            regions:
+              - name: us-east-1
+            vpc: vpc0
+          dependencies:
+            securityGroupNames:
+              - myapp
+          deployWith:
+            health: AUTO
+            strategy: red-black
+            waitForInstancesUp: PT30M
+      - kind: ec2/security-group@v1 # myapp/test
+        metadata: {}
+        spec:
+          moniker:
+            app: myapp
+          locations:
+            account: test
+            regions:
+              - name: us-east-1
+            vpc: vpc0
+          description: Security Group for myapp
+          inboundRules: []
+      - kind: ec2/security-group@v1 # myapp-rds/dbs
+        metadata: {}
+        spec:
+          moniker:
+            app: myapp
+            stack: rds
+          locations:
+            account: dbs
+            regions:
+              - name: us-west-2
+            vpc: vpc0
+          description: Security Group for myapp rds
+          inboundRules: []
+    verifyWith: []
