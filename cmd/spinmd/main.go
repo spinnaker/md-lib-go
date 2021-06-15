@@ -100,7 +100,7 @@ func main() {
 	args := globalFlags.Args()
 
 	if len(args) < 1 {
-		fmt.Printf("Usage: %s [flags] export|publish|diff|pause|resume|delete|validate\n", filepath.Base(os.Args[0]))
+		fmt.Printf("Usage: %s [flags] export|publish|diff|pause|resume|delete|validate|fmt\n", filepath.Base(os.Args[0]))
 		fmt.Printf("Flags:\n")
 		globalFlags.PrintDefaults()
 		return
@@ -203,8 +203,12 @@ func main() {
 		}
 
 		err = mdcli.Resume(opts, appName)
+	case "fmt":
+		err = mdcli.Format(
+			opts,
+		)
 	default:
-		log.Fatalf(`Unexpected command %q, expected "export", "publish", or "diff" command`, args[0])
+		log.Fatalf(`Unexpected command %q, expected one of export|publish|diff|pause|resume|delete|validate|fmt`, args[0])
 	}
 
 	if err != nil {
