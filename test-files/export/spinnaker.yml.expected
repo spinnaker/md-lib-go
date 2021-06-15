@@ -19,6 +19,7 @@ environments:
   constraints:
   - type: manual-judgement
   notifications: []
+  postDeploy: []
   resources:
   - kind: ec2/cluster@v1.1
     metadata: {}

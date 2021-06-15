@@ -26,6 +26,7 @@ type exportOptions struct {
 	constraintsProvider    func(envName string, current mdlib.DeliveryConfig) []interface{}
 	notificationsProvider  func(envName string, current mdlib.DeliveryConfig) []interface{}
 	verifyWithProvider     func(envName string, current mdlib.DeliveryConfig) []interface{}
+	postDeployProvider     func(envName string, current mdlib.DeliveryConfig) []interface{}
 }
 
 // ExportOption is an interface to provide custom overrides for the Export command.
@@ -91,10 +92,18 @@ func NotificationsProvider(np func(envName string, current mdlib.DeliveryConfig)
 }
 
 // VerifyWithProvider is an override to Export that can be used to customizing how a default
-// verifyWith configuration for newly created environments.
+// verifyWith configuration is generated for new and existing environments.
 func VerifyWithProvider(vp func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
 	return func(o *exportOptions) {
 		o.verifyWithProvider = vp
+	}
+}
+
+// PostDeployProvider is an override to Export that can be used to customizing a default
+// postDeploy configuration is generated for new and existing environments.
+func PostDeployProvider(pdp func(envName string, current mdlib.DeliveryConfig) []interface{}) ExportOption {
+	return func(o *exportOptions) {
+		o.postDeployProvider = pdp
 	}
 }
 
@@ -161,6 +170,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		mdlib.WithConstraintsProvider(exportOpts.constraintsProvider),
 		mdlib.WithNotificationsProvider(exportOpts.notificationsProvider),
 		mdlib.WithVerifyProvider(exportOpts.verifyWithProvider),
+		mdlib.WithPostDeployProvider(exportOpts.postDeployProvider),
 	)
 
 	err = mdProcessor.Load()
