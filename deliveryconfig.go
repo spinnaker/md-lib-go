@@ -874,9 +874,9 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 
 // ValidationErrorDetail is the structure of the document from /managed/delivery-configs/validate API
 type ValidationErrorDetail struct {
-	Error   string  `json:"error"`
-	Status  float32 `json:"status"`
-	Message string  `json:"message"`
+	Error   string `json:"error"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 // Validate posts the delivery config to the validation api and returns nil on success,
