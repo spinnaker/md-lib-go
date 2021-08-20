@@ -782,24 +782,9 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 		}
 	}
 
-	yamlContent, err := p.yamlMarshal(p.rawDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "")
-	}
-	plainDeliveryConfig := map[string]interface{}{}
-	err = p.yamlUnmarshal(yamlContent, &plainDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "")
-	}
-
-	encoded, err := json.Marshal(&plainDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "Failed to serialized delivery config")
-	}
-
-	_, err = commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
-		Content:     bytes.NewReader(encoded),
-		ContentType: "application/json",
+	_, err := commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
+		Content:     bytes.NewReader(p.content),
+		ContentType: "application/x-yaml",
 	})
 
 	if err != nil {
