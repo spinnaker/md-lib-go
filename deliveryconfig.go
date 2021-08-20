@@ -782,24 +782,9 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 		}
 	}
 
-	yamlContent, err := p.yamlMarshal(p.rawDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "")
-	}
-	plainDeliveryConfig := map[string]interface{}{}
-	err = p.yamlUnmarshal(yamlContent, &plainDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "")
-	}
-
-	encoded, err := json.Marshal(&plainDeliveryConfig)
-	if err != nil {
-		return stacktrace.Propagate(err, "Failed to serialized delivery config")
-	}
-
-	_, err = commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
-		Content:     bytes.NewReader(encoded),
-		ContentType: "application/json",
+	_, err := commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
+		Content:     bytes.NewReader(p.content),
+		ContentType: "application/x-yaml",
 	})
 
 	if err != nil {
@@ -889,13 +874,9 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 
 // ValidationErrorDetail is the structure of the document from /managed/delivery-configs/validate API
 type ValidationErrorDetail struct {
-	Error    string `json:"error"`
-	Location struct {
-		Column int `json:"column"`
-		Line   int `json:"line"`
-	} `json:"location"`
-	Message        string `json:"message"`
-	PathExpression string `json:"pathExpression"`
+	Error   string `json:"error"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 // Validate posts the delivery config to the validation api and returns nil on success,
@@ -916,11 +897,10 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 	if err != nil {
 		if errResp, ok := stacktrace.RootCause(err).(ErrorUnexpectedResponse); ok {
 			if errResp.StatusCode == http.StatusBadRequest {
-				validation := struct {
-					Details ValidationErrorDetail `json:"details"`
-				}{}
-				return &validation.Details, stacktrace.Propagate(
-					errResp.Parse(&validation),
+				validation := ValidationErrorDetail{}
+				errResp.Parse(&validation)
+				return &validation, stacktrace.Propagate(
+					errResp,
 					"Failed to parse response from /managed/delivery-configs/validate",
 				)
 			}

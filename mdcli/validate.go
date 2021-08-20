@@ -12,7 +12,7 @@ import (
 func Validate(opts *CommandOptions) (int, error) {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
-		return 0, err
+		return 1, err
 	}
 
 	cli := mdlib.NewClient(
@@ -26,21 +26,15 @@ func Validate(opts *CommandOptions) (int, error) {
 	)
 
 	valErr, err := mdProcessor.Validate(cli)
+
 	if err != nil {
-		return 0, err
-	}
-	if valErr == nil {
-		fmt.Fprintf(opts.Stdout, "%s: OK\n", configPath)
-		return 0, nil
+		if valErr != nil {
+			fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
+			return 1, nil
+		}
+		return 1, err
 	}
 
-	fmt.Fprintf(opts.Stderr,
-		"%s: [%s] %s at %s\n",
-		configPath,
-		valErr.Error,
-		valErr.Message,
-		valErr.PathExpression,
-	)
-
-	return 1, nil
+	fmt.Fprintf(opts.Stdout, "PASSED")
+	return 0, nil
 }
