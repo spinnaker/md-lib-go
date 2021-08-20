@@ -27,20 +27,10 @@ func Validate(opts *CommandOptions) (int, error) {
 
 	valErr, err := mdProcessor.Validate(cli)
 	if err != nil {
+		fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
 		return 0, err
 	}
-	if valErr == nil {
-		fmt.Fprintf(opts.Stdout, "%s: OK\n", configPath)
-		return 0, nil
-	}
 
-	fmt.Fprintf(opts.Stderr,
-		"%s: [%s] %s at %s\n",
-		configPath,
-		valErr.Error,
-		valErr.Message,
-		valErr.PathExpression,
-	)
-
+	fmt.Fprintf(opts.Stdout, "PASSED")
 	return 1, nil
 }
