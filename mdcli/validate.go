@@ -30,6 +30,7 @@ func Validate(opts *CommandOptions) (int, error) {
 	if err != nil {
 		if valErr != nil {
 			fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
+			return 1, nil
 		}
 		return 1, err
 	}
