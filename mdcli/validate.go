@@ -26,8 +26,11 @@ func Validate(opts *CommandOptions) (int, error) {
 	)
 
 	valErr, err := mdProcessor.Validate(cli)
+
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
+		if valErr != nil {
+			fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
+		}
 		return 1, err
 	}
 
