@@ -774,7 +774,7 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 
 // Publish will post the delivery config to the Spinnaker API so that Spinnaker
 // will update the Managed state for the application.
-func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
+func (p *DeliveryConfigProcessor) Publish(cli *Client, force bool) error {
 	if p.rawDeliveryConfig == nil {
 		err := p.Load()
 		if err != nil {
@@ -782,7 +782,7 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client) error {
 		}
 	}
 
-	_, err := commonRequest(cli, "POST", "/managed/delivery-configs", requestBody{
+	_, err := commonRequest(cli, "POST", fmt.Sprintf("/managed/delivery-configs?force=%t", force), requestBody{
 		Content:     bytes.NewReader(p.content),
 		ContentType: "application/x-yaml",
 	})

@@ -155,7 +155,11 @@ func main() {
 			mdcli.AssumeEnvName(envName),
 		)
 	case "publish":
-		exitCode, err = mdcli.Publish(opts)
+		var force bool
+		publishFlags := flag.NewFlagSet("diff", flag.ExitOnError)
+		publishFlags.BoolVar(&force, "force", false, "allow overwriting existing resources when publishing the config for the first time")
+		publishFlags.Parse(args[1:])
+		exitCode, err = mdcli.Publish(opts, force)
 	case "validate":
 		exitCode, err = mdcli.Validate(opts)
 	case "diff":
