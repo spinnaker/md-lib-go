@@ -31,6 +31,6 @@ func TestPublish(t *testing.T) {
 
 	// we expect a single POST to delivery-configs API
 	require.Equal(t, map[string]int{
-		"POST /managed/delivery-configs": 1,
+		"POST /managed/delivery-configs?force=false": 1,
 	}, requests)
 }
