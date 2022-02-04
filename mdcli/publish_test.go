@@ -26,11 +26,11 @@ func TestPublish(t *testing.T) {
 	opts.ConfigDir = "../test-files/publish"
 	opts.ConfigFile = "spinnaker.yml"
 
-	_, err := Publish(opts)
+	_, err := Publish(opts, false)
 	require.NoError(t, err)
 
 	// we expect a single POST to delivery-configs API
 	require.Equal(t, map[string]int{
-		"POST /managed/delivery-configs": 1,
+		"POST /managed/delivery-configs?force=false": 1,
 	}, requests)
 }

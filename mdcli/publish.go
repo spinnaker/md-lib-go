@@ -47,7 +47,8 @@ func (body *PublishErrorBody) UnmarshalJSON(b []byte) error {
 
 // Publish is a command line interface for publishing a local delivery config
 // to be managed by Spinnaker.
-func Publish(opts *CommandOptions) (int, error) {
+func Publish(opts *CommandOptions, force bool) (int, error) {
+	fmt.Printf("It is recommended to update your delivery config by committing it to your repository and not by calling the publish command. For more details: http://go.netflix.com/publish-managed-delivery-config")
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
 		return 1, err
@@ -63,7 +64,7 @@ func Publish(opts *CommandOptions) (int, error) {
 		mdlib.WithFile(opts.ConfigFile),
 	)
 
-	err := mdProcessor.Publish(cli)
+	err := mdProcessor.Publish(cli, force)
 	if err != nil {
 		if e, ok := stacktrace.RootCause(err).(mdlib.ErrorUnexpectedResponse); ok {
 			pe := &PublishError{}
