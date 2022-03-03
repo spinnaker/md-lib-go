@@ -2,13 +2,12 @@ package mdlib
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 
-	"github.com/palantir/stacktrace"
+	"golang.org/x/xerrors"
 )
 
 var (
@@ -55,14 +54,14 @@ func WithHTTPClient(client func(*http.Request) (*http.Response, error)) ClientOp
 func commonParsedGet(cli *Client, u string, result interface{}) error {
 	content, err := commonRequest(cli, "GET", u, requestBody{})
 	if err != nil {
-		return stacktrace.Propagate(err, "failed to get content for %s", u)
+		return xerrors.Errorf("failed to get content for %s: %w", u, err)
 	}
 
 	err = json.Unmarshal(content, result)
 	if err != nil {
-		return stacktrace.Propagate(
+		return xerrors.Errorf(
+			"expected JSON from %s, failed to parse %q as JSON: %w", u, string(content),
 			ErrorInvalidContent{Content: content, ParseError: err},
-			"expected JSON from %s, failed to parse %q as JSON", u, string(content),
 		)
 	}
 
@@ -76,13 +75,13 @@ type requestBody struct {
 
 func commonRequest(cli *Client, method string, u string, body requestBody) ([]byte, error) {
 	if cli.spinnakerAPIBaseURL == "" {
-		return nil, stacktrace.NewError("SPINNAKER_API_BASE_URL environment variable not set")
+		return nil, xerrors.New("SPINNAKER_API_BASE_URL environment variable not set")
 	}
-	u = fmt.Sprintf("%s%s", cli.spinnakerAPIBaseURL, u)
+	u = cli.spinnakerAPIBaseURL + u
 
 	req, err := http.NewRequest(method, u, body.Content)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "unable to create new request for %s", u)
+		return nil, xerrors.Errorf("unable to create new request for %s: %w", u, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -92,13 +91,13 @@ func commonRequest(cli *Client, method string, u string, body requestBody) ([]by
 
 	resp, err := cli.httpClient(req)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "failed to %s %s", method, u)
+		return nil, xerrors.Errorf("failed to %s %s: %w", method, u, err)
 	}
 	defer resp.Body.Close()
 
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "failed to read response body from %s", u)
+		return nil, xerrors.Errorf("failed to read response body from %s: %w", u, err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
@@ -107,7 +106,7 @@ func commonRequest(cli *Client, method string, u string, body requestBody) ([]by
 			URL:        u,
 			Content:    content,
 		}
-		return nil, stacktrace.Propagate(err, "")
+		return nil, xerrors.Errorf("api request: %w", err)
 	}
 
 	return content, nil

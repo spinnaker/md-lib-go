@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/palantir/stacktrace"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/xerrors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -131,7 +131,7 @@ func FindApplicationResources(cli *Client, appName string) (*ApplicationResource
 
 	err := g.Wait()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "failed to load resources")
+		return nil, xerrors.Errorf("failed to load resources: %w", err)
 	}
 
 	return data, nil
@@ -203,11 +203,11 @@ func ExportArtifact(cli *Client, resource *ExportableResource, result interface{
 		requestBody{},
 	)
 	if err != nil {
-		return stacktrace.Propagate(err, "")
+		return xerrors.Errorf("failed to retrieve artifact YAML: %w", err)
 	}
 	err = yaml.Unmarshal(content, result)
 	if err != nil {
-		return stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+		return xerrors.Errorf("failed to unmarshal artifact YAML: %w", ErrorInvalidContent{Content: content, ParseError: err})
 	}
 	return nil
 }
