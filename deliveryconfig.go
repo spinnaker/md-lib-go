@@ -3,6 +3,7 @@ package mdlib
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,7 +16,7 @@ import (
 	"time"
 
 	"github.com/coryb/walky"
-	"github.com/palantir/stacktrace"
+	"golang.org/x/xerrors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -332,28 +333,28 @@ func (p *DeliveryConfigProcessor) Load() error {
 		)
 		return nil
 	} else if err != nil {
-		return stacktrace.Propagate(err, "failed to stat %s", deliveryFile)
+		return xerrors.Errorf("failed to stat %s: %w", deliveryFile, err)
 	}
 	var err error
 	p.content, err = ioutil.ReadFile(deliveryFile)
 	if err != nil {
-		return stacktrace.Propagate(err, "failed to read %s", deliveryFile)
+		return xerrors.Errorf("failed to read %s: %w", deliveryFile, err)
 	}
 
 	p.rawDeliveryConfig = &yaml.Node{}
 	err = yaml.Unmarshal(p.content, p.rawDeliveryConfig)
 	if err != nil {
-		return stacktrace.Propagate(
+		return xerrors.Errorf(
+			"Failed to parse contents of %s as yaml: %w", deliveryFile,
 			ErrorInvalidContent{Content: p.content, ParseError: err},
-			"Failed to parse contents of %s as yaml", deliveryFile,
 		)
 	}
 
 	err = yaml.Unmarshal(p.content, &p.deliveryConfig)
 	if err != nil {
-		return stacktrace.Propagate(
+		return xerrors.Errorf(
+			"Failed to parse contents of %s as yaml: %w", deliveryFile,
 			ErrorInvalidContent{Content: p.content, ParseError: err},
-			"Failed to parse contents of %s as yaml", deliveryFile,
 		)
 	}
 	return nil
@@ -396,28 +397,28 @@ func (p *DeliveryConfigProcessor) Save() error {
 
 	output, err := p.yamlMarshal(p.rawDeliveryConfig)
 	if err != nil {
-		return stacktrace.Propagate(err, "")
+		return xerrors.Errorf("unmarshal delivery config YAML: %w", err)
 	}
 
 	// convert rawDeliveryConfig to yaml.Node so we can do custom sorting
 	root := yaml.Node{}
 	err = p.yamlUnmarshal(output, &root)
 	if err != nil {
-		return stacktrace.Propagate(err, "")
+		return xerrors.Errorf("convert delivery config to yaml.Node: %w", err)
 	}
 	// then walk yaml.Node and sort fields to have high-priority fields on top
 	configKeySort(&root)
 
 	output, err = p.yamlMarshal(&root)
 	if err != nil {
-		return stacktrace.Propagate(err, "")
+		return xerrors.Errorf("marshal sorted delivery config: %w", err)
 	}
 
 	p.content = output
 
 	err = os.MkdirAll(p.dirName, 0755)
 	if err != nil {
-		return stacktrace.Propagate(err, "failed to create directory %s", p.dirName)
+		return xerrors.Errorf("failed to create directory %s: %w", p.dirName, err)
 	}
 
 	deliveryFile := filepath.Join(p.dirName, p.fileName)
@@ -425,7 +426,7 @@ func (p *DeliveryConfigProcessor) Save() error {
 	log.Printf("Writing to %s", deliveryFile)
 	err = ioutil.WriteFile(deliveryFile, output, 0644)
 	if err != nil {
-		return stacktrace.Propagate(err, "")
+		return xerrors.Errorf("write delivery file: %w", err)
 	}
 	return nil
 }
@@ -526,12 +527,12 @@ func (p *DeliveryConfigProcessor) WhichEnvironment(resource *ExportableResource)
 func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, envName string, content []byte) (added bool, err error) {
 	data, err := p.bytesToData(content)
 	if err != nil {
-		return false, stacktrace.Propagate(err, "failed to parse content")
+		return false, xerrors.Errorf("failed to parse content: %w", err)
 	}
 	deliveryResource := &DeliveryResource{}
 	err = yaml.Unmarshal(content, &deliveryResource)
 	if err != nil {
-		return false, stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+		return false, xerrors.Errorf("unmarshal delivery resource: %w", ErrorInvalidContent{Content: content, ParseError: err})
 	}
 
 	envIx := p.findEnvIndex(envName)
@@ -552,15 +553,15 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			"postDeploy":    p.postDeployProvider(envName, p.deliveryConfig),
 		})
 		if err != nil {
-			return false, stacktrace.Propagate(err, "")
+			return false, xerrors.Errorf("convert to node: %w", err)
 		}
 		err = walky.AppendNode(envsNode, newEnvNode)
 		if err != nil {
-			return false, stacktrace.Propagate(err, "")
+			return false, xerrors.Errorf("append node: %w", err)
 		}
 		err = walky.AssignMapNode(p.rawDeliveryConfig, keyNode, envsNode)
 		if err != nil {
-			return false, stacktrace.Propagate(err, "")
+			return false, xerrors.Errorf("assign map node: %w", err)
 		}
 		// update in memory struct in case we look for this environment again later
 		p.deliveryConfig.Environments = append(p.deliveryConfig.Environments, &DeliveryEnvironment{
@@ -574,22 +575,22 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			keyNode, _ := walky.ToNode("constraints")
 			valNode, err := walky.ToNode(p.constraintsProvider(envName, p.deliveryConfig))
 			if err != nil {
-				return false, stacktrace.Propagate(err, "")
+				return false, xerrors.Errorf("convert to node: %w", err)
 			}
 			err = walky.AssignMapNode(envNode, keyNode, valNode)
 			if err != nil {
-				return false, stacktrace.Propagate(err, "")
+				return false, xerrors.Errorf("assign map node: %w", err)
 			}
 		}
 		if !walky.HasKey(envNode, "notifications") {
 			keyNode, _ := walky.ToNode("notifications")
 			valNode, err := walky.ToNode(p.notificationsProvider(envName, p.deliveryConfig))
 			if err != nil {
-				return false, stacktrace.Propagate(err, "")
+				return false, xerrors.Errorf("convert to node: %w", err)
 			}
 			err = walky.AssignMapNode(envNode, keyNode, valNode)
 			if err != nil {
-				return false, stacktrace.Propagate(err, "")
+				return false, xerrors.Errorf("assign map node: %w", err)
 			}
 		}
 		resourcesNode := walky.GetKey(envNode, "resources")
@@ -597,7 +598,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 			resourceIx := p.findResourceIndex(resource, envIx)
 			dataNode, err := walky.ToNode(data)
 			if err != nil {
-				return false, stacktrace.Propagate(err, "")
+				return false, xerrors.Errorf("convert to node: %w", err)
 			}
 			if resourceIx < 0 {
 				p.deliveryConfig.Environments[envIx].Resources = append(p.deliveryConfig.Environments[envIx].Resources, deliveryResource)
@@ -611,14 +612,14 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 		keyNode, _ := walky.ToNode("verifyWith")
 		veryWithNode, err := walky.ToNode(p.verifyWithProvider(envName, p.deliveryConfig))
 		if err != nil {
-			return false, stacktrace.Propagate(err, "")
+			return false, xerrors.Errorf("convert to node: %w", err)
 		}
 		walky.AssignMapNode(envNode, keyNode, veryWithNode) // overwrite previous config
 
 		keyNode, _ = walky.ToNode("postDeploy")
 		postDeployNode, err := walky.ToNode(p.postDeployProvider(envName, p.deliveryConfig))
 		if err != nil {
-			return false, stacktrace.Propagate(err, "")
+			return false, xerrors.Errorf("convert to node: %w", err)
 		}
 		walky.AssignMapNode(envNode, keyNode, postDeployNode) // overwrite previous config
 	}
@@ -628,7 +629,7 @@ func (p *DeliveryConfigProcessor) UpsertResource(resource *ExportableResource, e
 func (p *DeliveryConfigProcessor) bytesToData(content []byte) (data interface{}, err error) {
 	err = p.yamlUnmarshal(content, &data)
 	if err != nil {
-		return nil, stacktrace.Propagate(ErrorInvalidContent{Content: content, ParseError: err}, "")
+		return nil, xerrors.Errorf("unmarshal delivery config: %w", ErrorInvalidContent{Content: content, ParseError: err})
 	}
 	return data, nil
 }
@@ -710,12 +711,12 @@ func (p *DeliveryConfigProcessor) InsertArtifact(artifact *DeliveryArtifact) (ad
 // UpdateArtifactReference will update the artifact reference in the delivery config
 func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updatedRef string) error {
 	if content == nil {
-		return stacktrace.NewError("cannot update nil content for artifact reference")
+		return xerrors.New("cannot update nil content for artifact reference")
 	}
 	data := map[string]interface{}{}
 	err := yaml.Unmarshal(*content, &data)
 	if err != nil {
-		return stacktrace.Propagate(err, "Failed to parse resource as yaml to updated reference")
+		return xerrors.Errorf("Failed to parse resource as yaml to updated reference: %w", err)
 	}
 	if kind, ok := data["kind"].(string); ok {
 		switch {
@@ -730,10 +731,10 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 					spec["container"] = container
 					data["spec"] = spec
 				} else {
-					return stacktrace.NewError("resource for titus/cluster@v1 missing spec.cluster property")
+					return xerrors.New("resource for titus/cluster@v1 missing spec.cluster property")
 				}
 			} else {
-				return stacktrace.NewError("resource for titus/cluster@v1 missing spec property")
+				return xerrors.New("resource for titus/cluster@v1 missing spec property")
 			}
 		case kind == "ec2/cluster@v1":
 			// kind: ec2/cluster@v1
@@ -746,10 +747,10 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 					spec["imageProvider"] = imageProvider
 					data["spec"] = spec
 				} else {
-					return stacktrace.NewError("resource for ec2/cluster@v1 missing spec.imageProvider property")
+					return xerrors.New("resource for ec2/cluster@v1 missing spec.imageProvider property")
 				}
 			} else {
-				return stacktrace.NewError("resource for ec2/cluster@v1 missing spec property")
+				return xerrors.New("resource for ec2/cluster@v1 missing spec property")
 			}
 		case kind == "ec2/cluster@v1.1":
 			// kind: ec2/cluster@v1.1
@@ -758,15 +759,15 @@ func (p *DeliveryConfigProcessor) UpdateArtifactReference(content *[]byte, updat
 			if spec, ok := data["spec"].(map[string]interface{}); ok {
 				spec["artifactReference"] = updatedRef
 			} else {
-				return stacktrace.NewError("resource for ec2/cluster@v1 missing spec property")
+				return xerrors.New("resource for ec2/cluster@v1 missing spec property")
 			}
 		default:
-			return stacktrace.NewError("cannot update artifact reference for unexpected kind: %q", kind)
+			return xerrors.Errorf("cannot update artifact reference for unexpected kind: %q", kind)
 		}
 	}
 	updated, err := yaml.Marshal(&data)
 	if err != nil {
-		return stacktrace.Propagate(err, "Failed to marshal resource for updated artifact reference")
+		return xerrors.Errorf("Failed to marshal resource for updated artifact reference: %w", err)
 	}
 	*content = updated
 	return nil
@@ -778,7 +779,7 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client, force bool) error {
 	if p.rawDeliveryConfig == nil {
 		err := p.Load()
 		if err != nil {
-			return stacktrace.Propagate(err, "Failed to load delivery config")
+			return xerrors.Errorf("Failed to load delivery config: %w", err)
 		}
 	}
 
@@ -788,7 +789,7 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client, force bool) error {
 	})
 
 	if err != nil {
-		return stacktrace.Propagate(err, "Failed to post delivery config to spinnaker")
+		return xerrors.Errorf("Failed to post delivery config to spinnaker: %w", err)
 	}
 
 	return nil
@@ -816,7 +817,7 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 	if len(p.content) == 0 {
 		err := p.Load()
 		if err != nil {
-			return nil, stacktrace.Propagate(err, "Failed to load delivery config")
+			return nil, xerrors.Errorf("Failed to load delivery config: %w", err)
 		}
 	}
 
@@ -826,7 +827,7 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 	})
 
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "Failed to diff delivery config with spinnaker")
+		return nil, xerrors.Errorf("Failed to diff delivery config with spinnaker: %w", err)
 	}
 
 	data := []struct {
@@ -835,9 +836,9 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 
 	err = json.Unmarshal(content, &data)
 	if err != nil {
-		return nil, stacktrace.Propagate(
+		return nil, xerrors.Errorf(
+			"failed to parse response from diff api: %w",
 			ErrorInvalidContent{Content: content, ParseError: err},
-			"failed to parse response from diff api",
 		)
 	}
 
@@ -865,10 +866,10 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 	if p.rawDeliveryConfig == nil {
 		err := p.Load()
 		if err != nil {
-			return stacktrace.Propagate(err, "Failed to load delivery config")
+			return xerrors.Errorf("Failed to load delivery config: %w", err)
 		}
 	}
-	_, err := commonRequest(cli, "DELETE", fmt.Sprintf("/managed/delivery-configs/%s", p.deliveryConfig.Name), requestBody{})
+	_, err := commonRequest(cli, "DELETE", "/managed/delivery-configs/"+p.deliveryConfig.Name, requestBody{})
 	return err
 }
 
@@ -885,7 +886,7 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 	if len(p.content) == 0 {
 		err := p.Load()
 		if err != nil {
-			return nil, stacktrace.Propagate(err, "Failed to load delivery config")
+			return nil, xerrors.Errorf("Failed to load delivery config: %w", err)
 		}
 	}
 
@@ -895,17 +896,18 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 	})
 
 	if err != nil {
-		if errResp, ok := stacktrace.RootCause(err).(ErrorUnexpectedResponse); ok {
+		var errResp ErrorUnexpectedResponse
+		if errors.As(err, &errResp) {
 			if errResp.StatusCode == http.StatusBadRequest {
 				validation := ValidationErrorDetail{}
 				errResp.Parse(&validation)
-				return &validation, stacktrace.Propagate(
+				return &validation, xerrors.Errorf(
+					"Failed to parse response from /managed/delivery-configs/validate: %w",
 					errResp,
-					"Failed to parse response from /managed/delivery-configs/validate",
 				)
 			}
 		}
-		return nil, stacktrace.Propagate(err, "Failed to validate delivery config to spinnaker")
+		return nil, xerrors.Errorf("Failed to validate delivery config to spinnaker: %w", err)
 	}
 
 	return nil, nil

@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/spinnaker/md-lib-go/mdcli"
 	"github.com/spinnaker/spin/cmd/gateclient"
@@ -216,7 +215,7 @@ func main() {
 	}
 
 	if err != nil {
-		log.Fatalf("ERROR: %s", stacktrace.RootCause(err))
+		log.Fatalf("ERROR: %s", err)
 	}
 	os.Exit(exitCode)
 }

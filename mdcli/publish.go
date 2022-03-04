@@ -2,11 +2,11 @@ package mdcli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
@@ -65,7 +65,8 @@ func Publish(opts *CommandOptions, force bool) (int, error) {
 
 	err := mdProcessor.Publish(cli, force)
 	if err != nil {
-		if e, ok := stacktrace.RootCause(err).(mdlib.ErrorUnexpectedResponse); ok {
+		var e mdlib.ErrorUnexpectedResponse
+		if errors.As(err, &e) {
 			pe := &PublishError{}
 			e.Parse(pe)
 			fmt.Fprintf(opts.Stderr, "ERROR: Failed to publish delivery config.  Spinnaker responded with:\n")

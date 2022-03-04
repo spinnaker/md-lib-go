@@ -8,10 +8,10 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/mgutz/ansi"
-	"github.com/palantir/stacktrace"
 	mdlib "github.com/spinnaker/md-lib-go"
 	"github.com/xlab/treeprint"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/xerrors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -251,7 +251,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		opts.Logger.Printf("Exporting %s", resource)
 		content, err := exportOpts.customResourceExporter(cli, resource, serviceAccount)
 		if err != nil {
-			errors = append(errors, stacktrace.Propagate(err, "Failed to export resource %s", resource))
+			errors = append(errors, xerrors.Errorf("Failed to export resource %s: %w", resource, err))
 			continue
 		}
 
@@ -278,7 +278,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 				survey.WithStdio(opts.Stdin, opts.Stdout, opts.Stderr),
 			)
 			if err != nil {
-				errors = append(errors, stacktrace.Propagate(err, "Failed to read prompt for environment on resource %s", resource))
+				errors = append(errors, xerrors.Errorf("Failed to read prompt for environment on resource %s: %w", resource, err))
 				continue
 			}
 			envName = selectedEnvironment
@@ -287,7 +287,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 
 		added, err := mdProcessor.UpsertResource(resource, envName, content)
 		if err != nil {
-			errors = append(errors, stacktrace.Propagate(err, "Failed to upsert delivery config for resource %s", resource))
+			errors = append(errors, xerrors.Errorf("Failed to upsert delivery config for resource %s: %w", resource, err))
 			continue
 		}
 		modifiedResources[resource] = added
@@ -323,7 +323,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 					}
 					added, err = mdProcessor.UpsertResource(resource, envName, content)
 					if err != nil {
-						errors = append(errors, stacktrace.Propagate(err, "Failed to upsert delivery config for resource %s", resource))
+						errors = append(errors, xerrors.Errorf("Failed to upsert delivery config for resource %s: %w", resource, err))
 						continue
 					}
 					modifiedResources[resource] = added
