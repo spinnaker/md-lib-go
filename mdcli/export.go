@@ -189,7 +189,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		var option string
 		switch {
 		case mdProcessor.ResourceExists(resource):
-			option = fmt.Sprintf("Update %s", resource)
+			option = fmt.Sprintf("Export %s", resource)
 		case resource.ResourceType == mdlib.NetworkLoadBalancerResourceType:
 			opts.Logger.Printf("WARNING cannot export %s", resource)
 			continue
