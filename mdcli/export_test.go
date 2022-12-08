@@ -55,7 +55,6 @@ func TestExport(t *testing.T) {
 	_, err = Export(
 		opts,
 		"myapp",
-		"myteam@example.com",
 		AssumeEnvName("testing"),
 		ExportAll(true),
 	)

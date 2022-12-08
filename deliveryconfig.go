@@ -35,11 +35,10 @@ var (
 
 // DeliveryConfig holds the structure for the manage delivery config stored in .netflix/spinnaker.yml
 type DeliveryConfig struct {
-	Name           string
-	Application    string
-	ServiceAccount string `yaml:"serviceAccount"`
-	Artifacts      []*DeliveryArtifact
-	Environments   []*DeliveryEnvironment
+	Name         string
+	Application  string
+	Artifacts    []*DeliveryArtifact
+	Environments []*DeliveryEnvironment
 }
 
 // DeliveryEnvironment contains the resources per environment.
@@ -185,7 +184,6 @@ type DeliveryResourceContainer struct {
 // DeliveryConfigProcessor is a structure to manage operations on a delivery config.
 type DeliveryConfigProcessor struct {
 	appName               string
-	serviceAccount        string
 	fileName              string
 	dirName               string
 	rawDeliveryConfig     *yaml.Node
@@ -247,13 +245,6 @@ func WithFile(f string) ProcessorOption {
 func WithAppName(a string) ProcessorOption {
 	return func(p *DeliveryConfigProcessor) {
 		p.appName = a
-	}
-}
-
-// WithServiceAccount is a ProcessorOption to set the service account used for access control for the delivery config operations.
-func WithServiceAccount(a string) ProcessorOption {
-	return func(p *DeliveryConfigProcessor) {
-		p.serviceAccount = a
 	}
 }
 
@@ -368,11 +359,6 @@ func (p *DeliveryConfigProcessor) Save() error {
 		appNode, _ := walky.ToNode(p.appName)
 		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, appNode)
 	}
-	if ok := walky.HasKey(p.rawDeliveryConfig, "serviceAccount"); !ok && p.serviceAccount != "" {
-		keyNode, _ := walky.ToNode("serviceAccount")
-		serviceAccountNode, _ := walky.ToNode(p.serviceAccount)
-		walky.AssignMapNode(p.rawDeliveryConfig, keyNode, serviceAccountNode)
-	}
 	// ensure if no artifacts are present then we set it to an empty list, it is
 	// required by the API
 	if !walky.HasKey(p.rawDeliveryConfig, "artifacts") {
@@ -442,7 +428,6 @@ var ConfigKeySortPriority = []string{
 	"container",
 	"locations",
 	"application",
-	"serviceAccount",
 	"artifacts",
 	"environments",
 }

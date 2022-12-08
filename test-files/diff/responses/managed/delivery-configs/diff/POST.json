@@ -10,7 +10,6 @@
           "apiVersion": "ec2.spinnaker.netflix.com/v1",
           "kind": "security-group",
           "metadata": {
-            "serviceAccount": "myteam@example.com",
             "id": "ec2:security-group:test:myapp",
             "uid": "01234567890123456789",
             "application": "myapp"
@@ -83,7 +82,6 @@
           "apiVersion": "titus.spinnaker.netflix.com/v1",
           "kind": "cluster",
           "metadata": {
-            "serviceAccount": "myteam@example.com",
             "id": "titus:cluster:titustest:myapp",
             "uid": "01234567890123456789",
             "application": "myapp"

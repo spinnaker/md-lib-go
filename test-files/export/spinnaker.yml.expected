@@ -1,5 +1,4 @@
 application: myapp
-serviceAccount: myteam@example.com
 artifacts:
   - name: myapp
     type: deb
