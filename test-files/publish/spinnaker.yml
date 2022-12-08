@@ -91,4 +91,3 @@ environments:
       moniker:
         app: myapp
 name: myapp-manifest
-serviceAccount: myteam@example.com

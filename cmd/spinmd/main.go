@@ -129,30 +129,23 @@ func main() {
 	exitCode := 0
 	switch args[0] {
 	case "export":
-		var appName, serviceAccount string
+		var appName string
 		exportAll := false
 		envName := ""
 
 		exportFlags := flag.NewFlagSet("export", flag.ExitOnError)
 		exportFlags.StringVar(&appName, "app", "", "spinnaker application name")
-		exportFlags.StringVar(&serviceAccount, "service-account", "", "spinnaker service account")
 		exportFlags.BoolVar(&exportAll, "all", false, "export all options, skip prompt")
 		exportFlags.StringVar(&envName, "env", "", "assign exported resources to given environment, skip prompt")
 		exportFlags.Parse(args[1:])
 
-		if exportFlags.NArg() > 0 || appName == "" || serviceAccount == "" {
-			fmt.Printf("Usage: export -app <name> -service-account <account>\n")
+		if exportFlags.NArg() > 0 || appName == "" {
+			fmt.Printf("Usage: export -app <name>\n")
 			fmt.Printf("Flags:\n")
 			exportFlags.Usage()
 			return
 		}
-		exitCode, err = mdcli.Export(
-			opts,
-			appName,
-			serviceAccount,
-			mdcli.ExportAll(exportAll),
-			mdcli.AssumeEnvName(envName),
-		)
+		exitCode, err = mdcli.Export(opts, appName, mdcli.ExportAll(exportAll), mdcli.AssumeEnvName(envName))
 	case "publish":
 		var force bool
 		publishFlags := flag.NewFlagSet("publish", flag.ExitOnError)

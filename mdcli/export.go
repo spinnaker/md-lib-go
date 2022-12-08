@@ -22,7 +22,7 @@ type exportOptions struct {
 	onlyAccount            string
 	clusters               []string
 	customResourceScanner  func(*mdlib.ApplicationResources) []*mdlib.ExportableResource
-	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)
+	customResourceExporter func(*mdlib.Client, *mdlib.ExportableResource) ([]byte, error)
 	constraintsProvider    func(envName string, current mdlib.DeliveryConfig) []interface{}
 	notificationsProvider  func(envName string, current mdlib.DeliveryConfig) []interface{}
 	verifyWithProvider     func(envName string, current mdlib.DeliveryConfig) []interface{}
@@ -69,7 +69,7 @@ func CustomResourceScanner(f func(*mdlib.ApplicationResources) []*mdlib.Exportab
 
 // CustomResourceExporter is an override to Export that can be used to implement a custom resource exporter.
 // The default exporter is mdlib.ExportResource
-func CustomResourceExporter(f func(*mdlib.Client, *mdlib.ExportableResource, string) ([]byte, error)) ExportOption {
+func CustomResourceExporter(f func(*mdlib.Client, *mdlib.ExportableResource) ([]byte, error)) ExportOption {
 	return func(o *exportOptions) {
 		o.customResourceExporter = f
 	}
@@ -123,7 +123,7 @@ func SetClusters(clusters []string) ExportOption {
 
 // Export is a command line interface to discover exportable Spinnaker resources and then
 // optional add those resources to a local delivery config file to be later managed by Spinnaker.
-func Export(opts *CommandOptions, appName string, serviceAccount string, overrides ...ExportOption) (int, error) {
+func Export(opts *CommandOptions, appName string, overrides ...ExportOption) (int, error) {
 	exportOpts := &exportOptions{
 		customResourceScanner:  mdlib.ExportableApplicationResources,
 		customResourceExporter: mdlib.ExportResource,
@@ -166,7 +166,6 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
 		mdlib.WithAppName(appName),
-		mdlib.WithServiceAccount(serviceAccount),
 		mdlib.WithConstraintsProvider(exportOpts.constraintsProvider),
 		mdlib.WithNotificationsProvider(exportOpts.notificationsProvider),
 		mdlib.WithVerifyProvider(exportOpts.verifyWithProvider),
@@ -249,7 +248,7 @@ func Export(opts *CommandOptions, appName string, serviceAccount string, overrid
 	for _, selection := range selected {
 		resource := exportable[optionsIndexByName[selection]]
 		opts.Logger.Printf("Exporting %s", resource)
-		content, err := exportOpts.customResourceExporter(cli, resource, serviceAccount)
+		content, err := exportOpts.customResourceExporter(cli, resource)
 		if err != nil {
 			errors = append(errors, xerrors.Errorf("Failed to export resource %s: %w", resource, err))
 			continue

@@ -178,14 +178,13 @@ func ExportableApplicationResources(appData *ApplicationResources) []*Exportable
 
 // ExportResource will contact the Spinnaker REST API to collect the YAML delivery config representation for
 // a specific resource.
-func ExportResource(cli *Client, resource *ExportableResource, serviceAccount string) ([]byte, error) {
+func ExportResource(cli *Client, resource *ExportableResource) ([]byte, error) {
 	return commonRequest(cli, "GET",
-		fmt.Sprintf("/managed/resources/export/%s/%s/%s/%s?serviceAccount=%s",
+		fmt.Sprintf("/managed/resources/export/%s/%s/%s/%s",
 			resource.CloudProvider,
 			resource.Account,
 			resource.ResourceType,
 			resource.Name,
-			serviceAccount,
 		),
 		requestBody{},
 	)
