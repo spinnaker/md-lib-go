@@ -9,6 +9,7 @@ func Format(opts *CommandOptions) error {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithLogger(opts.Logger),
 	)
 
 	err := mdProcessor.Load()

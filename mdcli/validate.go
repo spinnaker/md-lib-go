@@ -22,6 +22,7 @@ func Validate(opts *CommandOptions) (int, error) {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithLogger(opts.Logger),
 	)
 
 	valErr, err := mdProcessor.Validate(cli)

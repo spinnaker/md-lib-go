@@ -170,6 +170,7 @@ func Export(opts *CommandOptions, appName string, overrides ...ExportOption) (in
 		mdlib.WithNotificationsProvider(exportOpts.notificationsProvider),
 		mdlib.WithVerifyProvider(exportOpts.verifyWithProvider),
 		mdlib.WithPostDeployProvider(exportOpts.postDeployProvider),
+		mdlib.WithLogger(opts.Logger),
 	)
 
 	err = mdProcessor.Load()

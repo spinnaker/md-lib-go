@@ -34,6 +34,7 @@ func Diff(opts *CommandOptions, diffOpts DiffOptions) (int, error) {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithLogger(opts.Logger),
 	)
 
 	diffs, err := mdProcessor.Diff(cli)
