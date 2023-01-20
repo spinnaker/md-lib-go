@@ -60,6 +60,7 @@ func Publish(opts *CommandOptions, force bool) (int, error) {
 	mdProcessor := mdlib.NewDeliveryConfigProcessor(
 		mdlib.WithDirectory(opts.ConfigDir),
 		mdlib.WithFile(opts.ConfigFile),
+		mdlib.WithLogger(opts.Logger),
 	)
 
 	err := mdProcessor.Publish(cli, force)

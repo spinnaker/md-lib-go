@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -89,7 +88,6 @@ func (a *DeliveryArtifact) Equal(b *DeliveryArtifact) bool {
 		return false
 	}
 	return true
-
 }
 
 // DeliveryResource contains the necessary configuration for a managed delivery resource
@@ -183,6 +181,7 @@ type DeliveryResourceContainer struct {
 
 // DeliveryConfigProcessor is a structure to manage operations on a delivery config.
 type DeliveryConfigProcessor struct {
+	log                   Logger
 	appName               string
 	fileName              string
 	dirName               string
@@ -203,6 +202,7 @@ type ProcessorOption func(p *DeliveryConfigProcessor)
 // NewDeliveryConfigProcessor will create a DeliveryConfigProcessor and apply all provided options.
 func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcessor {
 	p := &DeliveryConfigProcessor{
+		log:           NewDefaultLogger(),
 		fileName:      DefaultDeliveryConfigFileName,
 		dirName:       DefaultDeliveryConfigDirName,
 		yamlMarshal:   defaultYAMLMarshal,
@@ -224,6 +224,13 @@ func NewDeliveryConfigProcessor(opts ...ProcessorOption) *DeliveryConfigProcesso
 		opt(p)
 	}
 	return p
+}
+
+// WithLogger is a ProcessorOption to specify which logger to use
+func WithLogger(l Logger) ProcessorOption {
+	return func(p *DeliveryConfigProcessor) {
+		p.log = l
+	}
 }
 
 // WithDirectory is a ProcessorOption to set the directory where the delivery config is stored.
@@ -353,7 +360,7 @@ func (p *DeliveryConfigProcessor) Load() error {
 
 // Save will serialize the delivery config to disk.
 func (p *DeliveryConfigProcessor) Save() error {
-	log.Printf("Saving")
+	p.log.Noticef("Saving")
 	if ok := walky.HasKey(p.rawDeliveryConfig, "application"); !ok && p.appName != "" {
 		keyNode, _ := walky.ToNode("application")
 		appNode, _ := walky.ToNode(p.appName)
@@ -402,15 +409,15 @@ func (p *DeliveryConfigProcessor) Save() error {
 
 	p.content = output
 
-	err = os.MkdirAll(p.dirName, 0755)
+	err = os.MkdirAll(p.dirName, 0o755)
 	if err != nil {
 		return xerrors.Errorf("failed to create directory %s: %w", p.dirName, err)
 	}
 
 	deliveryFile := filepath.Join(p.dirName, p.fileName)
 
-	log.Printf("Writing to %s", deliveryFile)
-	err = ioutil.WriteFile(deliveryFile, output, 0644)
+	p.log.Noticef("Writing to %s", deliveryFile)
+	err = ioutil.WriteFile(deliveryFile, output, 0o644)
 	if err != nil {
 		return xerrors.Errorf("write delivery file: %w", err)
 	}
@@ -469,7 +476,6 @@ func configKeySort(node *yaml.Node) {
 			configKeySort(node)
 		}
 	}
-
 }
 
 // AllEnvironments will return a list of the names of all the environments in the delivery config as well
@@ -772,7 +778,6 @@ func (p *DeliveryConfigProcessor) Publish(cli *Client, force bool) error {
 		Content:     bytes.NewReader(p.content),
 		ContentType: "application/x-yaml",
 	})
-
 	if err != nil {
 		return xerrors.Errorf("Failed to post delivery config to spinnaker: %w", err)
 	}
@@ -810,7 +815,6 @@ func (p *DeliveryConfigProcessor) Diff(cli *Client) ([]*ManagedResourceDiff, err
 		Content:     bytes.NewReader(p.content),
 		ContentType: "application/x-yaml",
 	})
-
 	if err != nil {
 		return nil, xerrors.Errorf("Failed to diff delivery config with spinnaker: %w", err)
 	}
@@ -879,7 +883,6 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 		Content:     bytes.NewReader(p.content),
 		ContentType: "application/x-yaml",
 	})
-
 	if err != nil {
 		var errResp ErrorUnexpectedResponse
 		if errors.As(err, &errResp) {
