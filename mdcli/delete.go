@@ -1,7 +1,6 @@
 package mdcli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -31,6 +30,6 @@ func Delete(opts *CommandOptions) error {
 		return err
 	}
 
-	fmt.Fprintf(opts.Stdout, "OK\n")
+	opts.Logger.Noticef("OK")
 	return nil
 }

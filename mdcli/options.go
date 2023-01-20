@@ -23,11 +23,25 @@ type CommandOptions struct {
 func NewCommandOptions() *CommandOptions {
 	return &CommandOptions{
 		HTTPClient: http.DefaultClient.Do,
-		Logger:     log.New(os.Stderr, "", log.LstdFlags),
+		Logger:     defaultLogger{log.New(os.Stderr, "", log.LstdFlags)},
 		Stdout:     os.Stdout,
 		Stderr:     os.Stderr,
 		Stdin:      os.Stdin,
 	}
+}
+
+type defaultLogger struct {
+	*log.Logger
+}
+
+var _ Logger = (*defaultLogger)(nil)
+
+func (l defaultLogger) Noticef(format string, v ...any) {
+	l.Printf("NOTICE: "+format, v...)
+}
+
+func (l defaultLogger) Errorf(format string, v ...any) {
+	l.Printf("ERROR: "+format, v...)
 }
 
 // FdWriter represents an io.Writer with a Fd property. (*os.File implements this)
@@ -44,5 +58,7 @@ type FdReader interface {
 
 // Logger is a simple interface to abstract the logger implementation.  Go core `log` is used by default.
 type Logger interface {
-	Printf(format string, v ...interface{})
+	Printf(format string, v ...any)
+	Noticef(format string, v ...any)
+	Errorf(format string, v ...any)
 }
