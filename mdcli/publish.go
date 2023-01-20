@@ -3,7 +3,6 @@ package mdcli
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -69,13 +68,13 @@ func Publish(opts *CommandOptions, force bool) (int, error) {
 		if errors.As(err, &e) {
 			pe := &PublishError{}
 			e.Parse(pe)
-			fmt.Fprintf(opts.Stderr, "ERROR: Failed to publish delivery config.  Spinnaker responded with:\n")
-			fmt.Fprintf(opts.Stderr, "ERROR: %s\n", pe.Body.Message)
+			opts.Logger.Errorf("Failed to publish delivery config.  Spinnaker responded with:")
+			opts.Logger.Errorf(pe.Body.Message)
 			return 1, nil
 		}
 		return 1, err
 	}
 
-	fmt.Fprintf(opts.Stdout, "OK\n")
+	opts.Logger.Noticef("OK")
 	return 0, nil
 }

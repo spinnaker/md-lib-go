@@ -1,7 +1,6 @@
 package mdcli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -39,6 +38,6 @@ func resumePause(opts *CommandOptions, appName string, pause bool) error {
 		return err
 	}
 
-	fmt.Fprintf(opts.Stdout, "OK\n")
+	opts.Logger.Noticef("OK")
 	return nil
 }

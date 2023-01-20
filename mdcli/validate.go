@@ -1,7 +1,6 @@
 package mdcli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -26,15 +25,14 @@ func Validate(opts *CommandOptions) (int, error) {
 	)
 
 	valErr, err := mdProcessor.Validate(cli)
-
 	if err != nil {
 		if valErr != nil {
-			fmt.Fprintf(opts.Stderr, "Error: %s\nReason: %s\n", valErr.Error, valErr.Message)
+			opts.Logger.Errorf("%s\nReason: %s", valErr.Error, valErr.Message)
 			return 1, nil
 		}
 		return 1, err
 	}
 
-	fmt.Fprintf(opts.Stdout, "PASSED")
+	opts.Logger.Noticef("PASSED")
 	return 0, nil
 }

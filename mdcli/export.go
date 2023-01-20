@@ -418,12 +418,12 @@ func Export(opts *CommandOptions, appName string, overrides ...ExportOption) (in
 		}
 	}
 
-	fmt.Fprintf(opts.Stdout, "Export Summary:\n%s", tree.String())
+	opts.Logger.Noticef("Export Summary:\n%s", tree.String())
 
 	if len(errors) > 0 {
-		fmt.Fprintf(opts.Stderr, "ERROR: Some errors occurred during export:\n")
+		opts.Logger.Errorf("Some errors occurred during export:")
 		for _, err := range errors {
-			fmt.Fprintf(opts.Stderr, "ERROR: %s\n", err)
+			opts.Logger.Errorf(err.Error())
 		}
 		// we handled the errors here, just return non-zero exit code
 		return 1, nil

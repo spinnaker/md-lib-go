@@ -1,8 +1,6 @@
 package mdcli
 
 import (
-	"fmt"
-
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
@@ -23,6 +21,6 @@ func Format(opts *CommandOptions) error {
 		return err
 	}
 
-	fmt.Fprintf(opts.Stdout, "OK\n")
+	opts.Logger.Noticef("OK")
 	return nil
 }
