@@ -858,7 +858,7 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 			return xerrors.Errorf("Failed to load delivery config: %w", err)
 		}
 	}
-	_, err := commonRequest(cli, "DELETE", "/managed/delivery-configs/"+p.deliveryConfig.Name, requestBody{})
+	_, err := commonRequest(cli, "DELETE", "/managed/delivery-configs/"+p.deliveryConfig.Application, requestBody{})
 	return err
 }
 
