@@ -900,3 +900,33 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 
 	return nil, nil
 }
+
+// Returns the actuation plan for the current delivery config
+func (p *DeliveryConfigProcessor) Plan(cli *Client) (*ActuationPlan, error) {
+	if len(p.content) == 0 {
+		err := p.Load()
+		if err != nil {
+			return nil, xerrors.Errorf("Failed to load delivery config: %w", err)
+		}
+	}
+
+	content, err := commonRequest(cli, "POST", "/managed/delivery-configs/actuation-plan", requestBody{
+		Content:     bytes.NewReader(p.content),
+		ContentType: "application/x-yaml",
+	})
+	if err != nil {
+		return nil, xerrors.Errorf("Failed to calculate actuation plan: %w", err)
+	}
+
+	// convert content into an ActuationPlan
+	data := &ActuationPlan{}
+	err = json.Unmarshal(content, data)
+	if err != nil {
+		return nil, xerrors.Errorf(
+			"failed to parse response from actuation plan api: %w",
+			ErrorInvalidContent{Content: content, ParseError: err},
+		)
+	}
+
+	return data, nil
+}
