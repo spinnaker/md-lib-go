@@ -31,7 +31,7 @@ func Validate(opts *CommandOptions) (int, error) {
 		opts.Logger.Errorf("Exiting without failing\n")
 		return 0, nil
 	}
-	if valErr != nil {
+	if len(valErr) > 0 {
 		exitWithFailure := false
 		opts.Logger.Errorf("Found the following validation issues:\n")
 		for i := 0; i < len(valErr); i++ {
