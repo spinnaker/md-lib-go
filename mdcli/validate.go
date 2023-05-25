@@ -27,13 +27,23 @@ func Validate(opts *CommandOptions) (int, error) {
 
 	valErr, err := mdProcessor.Validate(cli)
 	if err != nil {
-		if valErr != nil {
-			for i := 0; i < len(valErr); i++ {
-				opts.Logger.Errorf("%s\nReason: %s", valErr[i].Message)
+		opts.Logger.Errorf("Could not validate the configuration: %s\n", err)
+		opts.Logger.Errorf("Exiting without failing\n")
+		return 0, nil
+	}
+	if valErr != nil {
+		exitWithFailure := false
+		opts.Logger.Errorf("Found the following validation issues:\n")
+		for i := 0; i < len(valErr); i++ {
+			if valErr[i].Status == 1 { // only fail if there is a sev 1 issue
+				exitWithFailure = true
 			}
+			opts.Logger.Errorf("%s\nReason: %s", valErr[i].Message)
+		}
+		if exitWithFailure {
+			opts.Logger.Noticef("FAILED")
 			return 1, nil
 		}
-		return 1, err
 	}
 
 	opts.Logger.Noticef("PASSED")
