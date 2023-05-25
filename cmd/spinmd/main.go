@@ -154,6 +154,8 @@ func main() {
 		exitCode, err = mdcli.Publish(opts, force)
 	case "validate":
 		exitCode, err = mdcli.Validate(opts)
+	case "plan":
+		exitCode, err = mdcli.Plan(opts)
 	case "diff":
 		var quiet, brief bool
 		diffFlags := flag.NewFlagSet("diff", flag.ExitOnError)
@@ -204,7 +206,7 @@ func main() {
 			opts,
 		)
 	default:
-		log.Fatalf(`Unexpected command %q, expected one of export|publish|diff|pause|resume|delete|validate|fmt`, args[0])
+		log.Fatalf(`Unexpected command %q, expected one of export|publish|diff|pause|resume|delete|validate|fmt|plan`, args[0])
 	}
 
 	if err != nil {
