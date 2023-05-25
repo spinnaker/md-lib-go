@@ -901,7 +901,7 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 	return nil, nil
 }
 
-// Returns the actuation plan for the current delivery config
+// Plan sends the delivery config to Spinnaker to get the actuation plan
 func (p *DeliveryConfigProcessor) Plan(cli *Client) (*ActuationPlan, error) {
 	if len(p.content) == 0 {
 		err := p.Load()

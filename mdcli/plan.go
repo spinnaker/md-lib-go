@@ -9,7 +9,7 @@ import (
 	mdlib "github.com/spinnaker/md-lib-go"
 )
 
-// Get the actuation plan for a local delivery config
+// Plan returns actuation plan for a local delivery config
 func Plan(opts *CommandOptions) (int, error) {
 	configPath := filepath.Join(opts.ConfigDir, opts.ConfigFile)
 	if _, err := os.Stat(configPath); err != nil {
@@ -46,11 +46,12 @@ func Plan(opts *CommandOptions) (int, error) {
 		for _, resource := range environment.ResourcePlans {
 			// Print in bold
 			fmt.Fprintf(opts.Stdout, "%sResource: %v%s\n", ansi.ColorCode("default+hb"), resource.ResourceDisplayName, ansi.Reset)
-			if resource.IsPaused {
+			switch {
+			case resource.IsPaused:
 				fmt.Fprintf(opts.Stdout, "Resource is paused and no actions will be taken\n\n")
-			} else if resource.Action == "NONE" {
+			case resource.Action == "NONE":
 				fmt.Fprintf(opts.Stdout, "No changes\n\n")
-			} else {
+			default:
 				for key, diff := range resource.Diff {
 					// Do switch case on diff.Type to determine what to do ADDED,CHANGED,REMOVED,
 					switch diff.Type {
