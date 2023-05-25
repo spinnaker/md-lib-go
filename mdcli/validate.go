@@ -28,7 +28,9 @@ func Validate(opts *CommandOptions) (int, error) {
 	valErr, err := mdProcessor.Validate(cli)
 	if err != nil {
 		if valErr != nil {
-			opts.Logger.Errorf("%s\nReason: %s", valErr.Error, valErr.Message)
+			for i := 0; i < len(valErr); i++ {
+				opts.Logger.Errorf("%s\nReason: %s", valErr[i].Message)
+			}
 			return 1, nil
 		}
 		return 1, err
