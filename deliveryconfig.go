@@ -864,14 +864,13 @@ func (p *DeliveryConfigProcessor) Delete(cli *Client) error {
 
 // ValidationErrorDetail is the structure of the document from /managed/delivery-configs/validate API
 type ValidationErrorDetail struct {
-	Error   string `json:"error"`
-	Status  int    `json:"status"`
+	Status  int    `json:"severity"`
 	Message string `json:"message"`
 }
 
 // Validate posts the delivery config to the validation api and returns nil on success,
 // or a ValidationErrorDetail
-func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail, error) {
+func (p *DeliveryConfigProcessor) Validate(cli *Client) ([]*ValidationErrorDetail, error) {
 	if len(p.content) == 0 {
 		err := p.Load()
 		if err != nil {
@@ -879,7 +878,7 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 		}
 	}
 
-	_, err := commonRequest(cli, "POST", "/managed/delivery-configs/validate", requestBody{
+	response, err := commonRequest(cli, "POST", "/managed/delivery-configs/validate?validate-all=true", requestBody{
 		Content:     bytes.NewReader(p.content),
 		ContentType: "application/x-yaml",
 	})
@@ -889,7 +888,7 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 			if errResp.StatusCode == http.StatusBadRequest {
 				validation := ValidationErrorDetail{}
 				errResp.Parse(&validation)
-				return &validation, xerrors.Errorf(
+				return []*ValidationErrorDetail{&validation}, xerrors.Errorf(
 					"Failed to parse response from /managed/delivery-configs/validate: %w",
 					errResp,
 				)
@@ -897,8 +896,16 @@ func (p *DeliveryConfigProcessor) Validate(cli *Client) (*ValidationErrorDetail,
 		}
 		return nil, xerrors.Errorf("Failed to validate delivery config to spinnaker: %w", err)
 	}
-
-	return nil, nil
+	// convert content into an ValidationErrorDetail[]
+	data := []*ValidationErrorDetail{}
+	err = json.Unmarshal(response, &data)
+	if err != nil {
+		return nil, xerrors.Errorf(
+			"failed to parse response from validation api: %w",
+			ErrorInvalidContent{Content: p.content, ParseError: err},
+		)
+	}
+	return data, nil
 }
 
 // Plan sends the delivery config to Spinnaker to get the actuation plan
