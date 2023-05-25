@@ -2,23 +2,20 @@ linters:
   enable-all: false
   disable-all: true
   enable:
-    - deadcode
     - depguard
     - gocritic
     - gofmt
     - goimports
-    - golint
+    - revive
     - gosimple
     - govet
     - ineffassign
     - misspell
-    - scopelint
-    - structcheck
+    - exportloopref
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
 
 issues:
   exclude-use-default: false
@@ -28,3 +25,4 @@ issues:
     - 'result .* is always (false|nil|`nil`)'
     - 'result .* is never used'
     - "and that stutters"
+    - should have a package comment
