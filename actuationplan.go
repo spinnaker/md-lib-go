@@ -21,18 +21,21 @@ type ResourceAction string
 
 // ResourcePlan describes the actions for a given resource
 type ResourcePlan struct {
-	Environment         string                        `json:"environment" yaml:"environment"`
-	ResourceId          string                        `json:"resourceId" yaml:"resourceId"`
-	ResourceDisplayName string                        `json:"resourceDisplayName" yaml:"resourceDisplayName"`
-	IsManaged           bool                          `json:"isManaged" yaml:"isManaged"`
-	IsPaused            bool                          `json:"isPaused" yaml:"isPaused"`
-	Action              ResourceAction                `json:"action" yaml:"action"`
-	Diff                map[string]SingleResourceDiff `json:"diff" yaml:"diff"`
+	Environment         string               `json:"environment" yaml:"environment"`
+	ResourceId          string               `json:"resourceId" yaml:"resourceId"`
+	ResourceDisplayName string               `json:"resourceDisplayName" yaml:"resourceDisplayName"`
+	IsManaged           bool                 `json:"isManaged" yaml:"isManaged"`
+	IsPaused            bool                 `json:"isPaused" yaml:"isPaused"`
+	Action              ResourceAction       `json:"action" yaml:"action"`
+	Diff                []SingleResourceDiff `json:"diff" yaml:"diff"`
 }
 
 // SingleResourceDiff describes the difference between the desired and current state of a resource
 type SingleResourceDiff struct {
+	Field   string `json:"field" yaml:"field"`
 	Type    string `json:"type" yaml:"type"`
 	Desired string `json:"desired" yaml:"desired"`
 	Current string `json:"current" yaml:"current"`
+	Message string `json:"message" yaml:"message"`
+	Prefix  string `json:"prefix" yaml:"prefix"`
 }

@@ -52,18 +52,20 @@ func Plan(opts *CommandOptions) (int, error) {
 			case resource.Action == "NONE":
 				fmt.Fprintf(opts.Stdout, "No changes\n\n")
 			default:
-				for key, diff := range resource.Diff {
+				// map type to color
+
+				for _, diff := range resource.Diff {
 					// Do switch case on diff.Type to determine what to do ADDED,CHANGED,REMOVED,
 					switch diff.Type {
 					case "ADDED":
-						fmt.Fprintf(opts.Stdout, "%s+ %s\t\t%v%s\n", ansi.Green, key, diff.Desired, ansi.Reset)
+						fmt.Fprintf(opts.Stdout, "%s+ %s\t\t%v%s\n", ansi.Green, diff.Field, diff.Desired, ansi.Reset)
 					case "CHANGED":
-						fmt.Fprintf(opts.Stdout, "%s~ %s\t\t%v => %v%s\n", ansi.Yellow, key, diff.Current, diff.Desired, ansi.Reset)
+						fmt.Fprintf(opts.Stdout, "%s~ %s\t\t%v => %v%s\n", ansi.Yellow, diff.Field, diff.Current, diff.Desired, ansi.Reset)
 					case "REMOVED":
-						fmt.Fprintf(opts.Stdout, "%s- %s\t\t%v%s\n", ansi.Red, key, diff.Current, ansi.Reset)
+						fmt.Fprintf(opts.Stdout, "%s- %s\t\t%v%s\n", ansi.Red, diff.Field, diff.Current, ansi.Reset)
 					default:
 						// Should never get here
-						fmt.Fprintf(opts.Stdout, "%v\tDesired: %v is %v\n", key, diff.Desired, diff.Type)
+						fmt.Fprintf(opts.Stdout, "%v\tDesired: %v is %v\n", diff.Field, diff.Desired, diff.Type)
 					}
 				}
 				fmt.Fprintf(opts.Stdout, "\n")
