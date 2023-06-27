@@ -33,12 +33,14 @@ func Validate(opts *CommandOptions) (int, error) {
 	}
 	if len(valErr) > 0 {
 		exitWithFailure := false
-		opts.Logger.Errorf("Found the following validation issues:\n")
+		opts.Logger.Noticef("Found the following potential validation issues:\n")
 		for i := 0; i < len(valErr); i++ {
 			if valErr[i].Status == 1 { // only fail if there is a sev 1 issue
 				exitWithFailure = true
+				opts.Logger.Errorf("%s\nReason: %s", valErr[i].Message)
+			} else {
+				opts.Logger.Noticef("%s\nReason: %s", valErr[i].Message)
 			}
-			opts.Logger.Errorf("%s\nReason: %s", valErr[i].Message)
 		}
 		if exitWithFailure {
 			opts.Logger.Noticef("FAILED")
